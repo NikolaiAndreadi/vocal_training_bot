@@ -4,5 +4,7 @@ import "fmt"
 
 func main() {
 	cfg := ParseConfig()
-	fmt.Printf("%+v\\n", cfg)
+	fmt.Printf("%+v", cfg)
+	db := InitDbConnection(cfg)
+	CreateSchema(db)
 }

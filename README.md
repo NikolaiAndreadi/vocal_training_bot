@@ -59,54 +59,56 @@ bot API:
 
 Database Tables:
     
-    Users:
+    +Users:
         id (chat_id?) Int64
         name Varchar(100)
         age int8 > 0
         city Varchar(50)
         timezone_raw int32  BETWEEN (-43200, 50400) -- shift in seconds
         timezone text + google.maps.api
-        class CHAR(7) IS IN ("USER", "ADMIN", "STUDENT", "BANNED")
+        user_class CHAR(7) IS IN ("USER", "ADMIN", "STUDENT", "BANNED")
         join_date  Timestamptz
 
     -- timezone generates from view "select name from pg_timezone_names where name not like 'posix%' and name not ilike 'system%' order by name;"
     -- https://stackoverflow.com/questions/55901/web-service-current-time-zone-for-a-city
 
-    WarmupGlobalNotifications:
+    +WarmupGlobalNotifications:
         user_id REFERENCES Users(id)
         online  Bool (True/False)
 
-    WarmupNotificationsTimings:
+    +WarmupNotificationsTimings:
         user_id REFERENCES Users(id)
         online  Bool (True/False)
         timing_day CHAR(3) IN (MON, TUE, WED, THU, FRI, SAT, SUN)
         timing_ts  timestamp(NO timezone) - calculate on Users.timezone param
 
-    WarmupLog:
+    +WarmupLog:
         user_id REFERENCES Users(id)
         datetime timestamp (timezone from users.timezone)
         duration interval -- None -> not commited
         cheerup_id REFERENCES WarmupCheerups(cheerup_id)
 
-    BecomeStudentNotifications:
+    +BecomeStudentRequests:
         user_id REFERENCES Users(id)
-        datetime timestamp (timezone from users.timezone) # when pushed
+        datetime timestamp # when pushed
 
-    WarmupCheerups:
+    +WarmupCheerups:
         cheerup_id 
         text Text
         enabled Bool
     
 
-    FanoutMessages:
+    +BlogMessages:
         message_id
         datetime
-        user_group
+        user_class
         views_count
+        posted bool
 
-    
-
-------------------
+    +Texts:
+        descr
+        content
+    (EXAMPLES)
     AboutMeText:
         text Text
 
