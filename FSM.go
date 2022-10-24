@@ -78,7 +78,7 @@ func (s *FSM) TriggerState(c tele.Context, stateName string) error {
 	}
 
 	// Set a new state to the database
-	if err2 := saveStateToDB(c, stateName); err2 != nil {
+	if err2 := setStateToDB(c, stateName); err2 != nil {
 		return err2
 	}
 
@@ -94,7 +94,7 @@ func (s *FSM) TriggerState(c tele.Context, stateName string) error {
 
 // ResetState clears out saved state in the database
 func (s *FSM) ResetState(c tele.Context) error {
-	return saveStateToDB(c, "")
+	return setStateToDB(c, "")
 }
 
 func (s *FSM) UpdateState(c tele.Context) error {
@@ -121,7 +121,7 @@ func (s *FSM) UpdateState(c tele.Context) error {
 		return s.ResetState(c)
 	}
 
-	if newState != ResumeState {
+	if (newState != ResumeState) || (newState != stateName) {
 		err = s.TriggerState(c, newState)
 		if err != nil {
 			return err
@@ -131,16 +131,56 @@ func (s *FSM) UpdateState(c tele.Context) error {
 	return nil
 }
 
-// DATABASE functions
+// STATE-RELATED VARIABLE METHOD
 
-func saveStateToDB(c tele.Context, stateName string) error {
+// SetStateVar saves jsonb field for user
+func SetStateVar(c tele.Context, varName string, value string) error {
 	userID := c.Sender().ID
 	_, err := DB.Exec(context.Background(), `
-			INSERT INTO states (user_id, state) 
-			VALUES($1, $2)
-			ON CONFLICT (user_id) DO UPDATE 
-				SET state = excluded.state 
-			`, userID, stateName)
+		UPDATE states.temp_vars
+		SET %1 ->> %2
+		WHERE user_id = %3
+	`, varName, value, userID)
+	return err
+}
+
+// GetStateVar extracts variable from jsonb column of table 'states'.
+// if exists, ok param will be true
+func GetStateVar(c tele.Context, varName string) (value string, ok bool, err error) {
+	userID := c.Sender().ID
+	err = DB.QueryRow(context.Background(), `
+		SELECT temp_vars->>%1 FROM states
+		WHERE user_id = %2
+		`, varName, userID).Scan(&value)
+	if err == pgx.ErrNoRows {
+		ok = false
+		err = nil
+	}
+	ok = true
+	return
+}
+
+// ClearStateVars flushes whole jsonb field for user
+func ClearStateVars(c tele.Context) error {
+	userID := c.Sender().ID
+	_, err := DB.Exec(context.Background(), `
+		UPDATE states
+		SET temp_vars = "{}"
+		WHERE user_id = %1
+	`, userID)
+	return err
+}
+
+// DATABASE functions
+
+func setStateToDB(c tele.Context, stateName string) error {
+	userID := c.Sender().ID
+	_, err := DB.Exec(context.Background(), `
+		INSERT INTO states (user_id, state) 
+		VALUES($1, $2)
+		ON CONFLICT (user_id) DO UPDATE 
+			SET state = excluded.state 
+		`, userID, stateName)
 	return err
 }
 
