@@ -50,6 +50,7 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE TABLE IF NOT EXISTS states (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		state			text,
+		temp_vars		jsonb,
 		
 		PRIMARY KEY (user_id)
 	);
