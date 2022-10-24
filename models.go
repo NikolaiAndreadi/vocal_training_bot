@@ -116,6 +116,7 @@ func createSchema(conn *pgxpool.Pool) {
 	    description text NOT NULL,
 	    content     text NOT NULL
 	);
+	CREATE INDEX IF NOT EXISTS idx_texts__name ON texts(name);
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {
