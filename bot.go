@@ -36,7 +36,7 @@ func setupStates(bot *StatefulBot) {
 		"Привет! Чтобы зарегистрироваться в боте надо пройти опрос. Как я могу к тебе обращаться?",
 		func(c tele.Context) (nextState string, e error) {
 			if c.Message().Text == "1" {
-				return "", c.Reply("ENTER YOUR NAMEEE!!!")
+				return NoState, c.Reply("ENTER YOUR NAMEEE!!!")
 			}
 			fmt.Println(c.Message().Text)
 			return ResetState, nil

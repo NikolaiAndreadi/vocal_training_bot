@@ -10,7 +10,10 @@ import (
 	"sync"
 )
 
-const ResetState = "__RESET__"
+const (
+	ResetState = "__RESET__"
+	NoState    = ""
+)
 
 type StateSetterType func(c tele.Context) (nextState string, e error)
 
@@ -53,8 +56,11 @@ func (s *States) TriggerState(c tele.Context, stateName string) error {
 		return err
 	}
 	s.mu.RLock()
-	state := s.statePool[stateName]
+	state, ok := s.statePool[stateName]
 	s.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("TriggerState: Unknown state '%s'", stateName)
+	}
 	return c.Reply(state.TextOnTrigger)
 }
 
@@ -82,9 +88,17 @@ func (s *States) UpdateState(c tele.Context) error {
 		return err
 	}
 
+	if stateName == NoState {
+		return c.Reply("I can't respond for this message")
+	}
+
 	s.mu.RLock()
-	state := s.statePool[stateName]
+	state, ok := s.statePool[stateName]
 	s.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("TriggerState: Unknown state '%s'", stateName)
+	}
 
 	newState, err := state.StateSetter(c)
 
@@ -92,7 +106,7 @@ func (s *States) UpdateState(c tele.Context) error {
 		return s.ResetState(c)
 	}
 
-	if newState != "" {
+	if newState != NoState {
 		err2 := s.TriggerState(c, newState)
 		if err != nil || err2 != nil {
 			err2 = fmt.Errorf("UpdateState with new state: %v; %v", err, err2)
@@ -103,4 +117,4 @@ func (s *States) UpdateState(c tele.Context) error {
 	return err
 }
 
-// TODO read from map with err statement
+// TODO: add json column to states (temp var like)
