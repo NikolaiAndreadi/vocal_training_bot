@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"time"
 )
+
+var DB *pgxpool.Pool
 
 // InitDbConnection creates a Pool of connections to Postgres database. Panics on fail: without database
 // there's nothing to do.
@@ -24,11 +26,13 @@ func InitDbConnection(cfg Config) *pgxpool.Pool {
 		panic(err)
 	}
 
+	createSchema(db)
+
 	return db
 }
 
 // CreateSchema creates db schemas
-func CreateSchema(conn *pgxpool.Pool) {
+func createSchema(conn *pgxpool.Pool) {
 	schema := `
 	CREATE TABLE IF NOT EXISTS users (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
@@ -43,11 +47,18 @@ func CreateSchema(conn *pgxpool.Pool) {
 		PRIMARY KEY (user_id)
 	);
 
+	CREATE TABLE IF NOT EXISTS states (
+		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
+		state			text,
+		
+		PRIMARY KEY (user_id)
+	);
+
 	CREATE TABLE IF NOT EXISTS warmup_global_notifications (
 	    user_id	int8	REFERENCES users(user_id),
 	    online	bool	NOT NULL
 	);
-	CREATE INDEX idx_warmup_global_notifications__user_id ON warmup_global_notifications(user_id);
+	CREATE INDEX IF NOT EXISTS idx_warmup_global_notifications__user_id ON warmup_global_notifications(user_id);
 
 	CREATE TABLE IF NOT EXISTS warmup_notification_timings (
 		user_id		int8		REFERENCES users(user_id),
@@ -55,7 +66,7 @@ func CreateSchema(conn *pgxpool.Pool) {
 		timing_day	char(3)		CHECK (timing_day IN ('MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN')),
 		timing_dt	timestamp	-- NO timezone, - calculate by using users.timezone_raw
 	);
-	CREATE INDEX idx_warmup_notification_timings__user_id ON warmup_notification_timings(user_id);
+	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__user_id ON warmup_notification_timings(user_id);
 
 
 	CREATE TABLE IF NOT EXISTS warmup_cheerups (
@@ -72,7 +83,7 @@ func CreateSchema(conn *pgxpool.Pool) {
 	    duration	interval,	-- None -> not committed
 	    cheerup_id	int4 		REFERENCES warmup_cheerups(cheerup_id)
 	);
-	CREATE INDEX idx_warmup_log__user_id ON warmup_log(user_id);
+	CREATE INDEX IF NOT EXISTS idx_warmup_log__user_id ON warmup_log(user_id);
 
 
 	CREATE TABLE IF NOT EXISTS become_student_requests (
@@ -80,7 +91,7 @@ func CreateSchema(conn *pgxpool.Pool) {
 	    datetime    timestamp,
 	    resolved    bool
 	);
-	CREATE INDEX idx_become_student_requests__resolved ON become_student_requests(resolved);
+	CREATE INDEX IF NOT EXISTS idx_become_student_requests__resolved ON become_student_requests(resolved);
 
 	CREATE TABLE IF NOT EXISTS blog_messages (
 	    message_id	serial,
@@ -90,9 +101,10 @@ func CreateSchema(conn *pgxpool.Pool) {
 	    
 	    PRIMARY KEY (message_id)
 	); -- TODO views count!!!
-	CREATE INDEX idx_blog_messages__posted ON blog_messages(posted);
+	CREATE INDEX IF NOT EXISTS idx_blog_messages__posted ON blog_messages(posted);
 	
 	CREATE TABLE IF NOT EXISTS texts (
+	    name		text NOT NULL,
 	    description text NOT NULL,
 	    content     text NOT NULL
 	);
@@ -103,56 +115,13 @@ func CreateSchema(conn *pgxpool.Pool) {
 	}
 }
 
-type Users struct {
-	UserID      int64     `db:"user_id"`
-	Username    string    `db:"username"`
-	Age         int16     `db:"age"`
-	City        string    `db:"city"`
-	TimezoneRaw int32     `db:"timezone_raw"`
-	TimezoneTxt string    `db:"timezone_txt"`
-	UserClass   string    `db:"user_class"`
-	JoinDt      time.Time `db:"join_dt"`
-}
-
-type WarmupGlobalNotifications struct {
-	UserID int64 `db:"user_id"`
-	Online bool  `db:"online"`
-}
-
-type WarmupNotificationTimings struct {
-	UserID    int64     `db:"user_id"`
-	Online    bool      `db:"online"`
-	TimingDay string    `db:"timing_day"`
-	TimingDt  time.Time `db:"timing_dt"`
-}
-
-type WarmupCheerups struct {
-	CheerupID  int64  `db:"cheerup_id"`
-	CheerupTxt string `db:"cheerup_txt"`
-	Online     bool   `db:"online"`
-}
-
-type WarmupLog struct {
-	UserID    int64         `db:"user_id"`
-	ExecDt    time.Time     `db:"exec_dt"`
-	Duration  time.Duration `db:"duration"`
-	CheerupID int64         `db:"cheerup_id"`
-}
-
-type BecomeStudentRequests struct {
-	UserID   int64     `db:"user_id"`
-	Datetime time.Time `db:"datetime"`
-	Resolved bool      `db:"resolved"`
-}
-
-type BlogMessages struct {
-	MessageID int32     `db:"message_id"`
-	Datetime  time.Time `db:"datetime"`
-	UserClass string    `db:"user_class"`
-	Posted    bool      `db:"posted"`
-}
-
-type Texts struct {
-	Description string `db:"description"`
-	Content     string `db:"content"`
+func UserIsInDatabase(UserID int64) bool {
+	err := DB.QueryRow(context.Background(), "SELECT user_id from users where user_id = $1", UserID).Scan()
+	if err == nil {
+		return true
+	}
+	if err == pgx.ErrNoRows {
+		return false
+	}
+	panic(fmt.Errorf("UserIsInDatabase: %w", err))
 }
