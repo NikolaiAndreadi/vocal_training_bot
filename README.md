@@ -121,3 +121,4 @@ SCRATCHPAD:
     - If missed warmup previously then send  MissedWarmupText
     - On correct cheerup don't change message to drastically, as it helps to understand which is efficient and which is not
     - what is warmup?
+    - add healhchecks, grafana, prometheus etc...
