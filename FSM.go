@@ -137,9 +137,9 @@ func (s *FSM) UpdateState(c tele.Context) error {
 func SetStateVar(c tele.Context, varName string, value string) error {
 	userID := c.Sender().ID
 	_, err := DB.Exec(context.Background(), `
-		UPDATE states.temp_vars
-		SET %1 ->> %2
-		WHERE user_id = %3
+		UPDATE states
+		SET temp_vars =  temp_vars || jsonb_build_object($1::text,$2::text)
+		WHERE user_id = $3
 	`, varName, value, userID)
 	return err
 }
@@ -149,14 +149,18 @@ func SetStateVar(c tele.Context, varName string, value string) error {
 func GetStateVar(c tele.Context, varName string) (value string, ok bool, err error) {
 	userID := c.Sender().ID
 	err = DB.QueryRow(context.Background(), `
-		SELECT temp_vars->>%1 FROM states
-		WHERE user_id = %2
+		SELECT temp_vars->>$1 FROM states
+		WHERE user_id = $2
 		`, varName, userID).Scan(&value)
-	if err == pgx.ErrNoRows {
+	ok = true
+
+	if err != nil {
 		ok = false
+	}
+	if err == pgx.ErrNoRows {
 		err = nil
 	}
-	ok = true
+
 	return
 }
 
@@ -165,8 +169,8 @@ func ClearStateVars(c tele.Context) error {
 	userID := c.Sender().ID
 	_, err := DB.Exec(context.Background(), `
 		UPDATE states
-		SET temp_vars = "{}"
-		WHERE user_id = %1
+		SET temp_vars = '{}'::jsonb
+		WHERE user_id = $1
 	`, userID)
 	return err
 }

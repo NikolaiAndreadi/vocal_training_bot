@@ -7,7 +7,7 @@ import (
 
 type StatefulBot struct {
 	*tele.Bot
-	states FSM
+	fsm FSM
 }
 
 func InitBot(cfg Config) *StatefulBot {
@@ -19,10 +19,10 @@ func InitBot(cfg Config) *StatefulBot {
 		panic(fmt.Errorf("InitBot: %w", err))
 	}
 
-	states := NewFSM()
+	fsm := NewFSM()
 	statefulBot := &StatefulBot{
 		bot,
-		states,
+		fsm,
 	}
 
 	setupStates(statefulBot)
@@ -32,14 +32,25 @@ func InitBot(cfg Config) *StatefulBot {
 }
 
 func setupStates(bot *StatefulBot) {
-	bot.states.AddState("StartSurvey",
+	bot.fsm.AddState("StartSurvey",
 		"Привет! Чтобы зарегистрироваться в боте надо пройти опрос. Как я могу к тебе обращаться?",
-		func(c tele.Context) (nextState string, e error) {
-			if c.Message().Text == "1" {
-				return ResumeState, c.Reply("ENTER YOUR NAMEEE!!!")
-			}
-			fmt.Println(c.Message().Text)
-			return ResetState, nil
+		func(c tele.Context) (nextState string, err error) {
+			err = SetStateVar(c, "UserName", c.Message().Text)
+			return "SetAge", err
+		})
+
+	bot.fsm.AddState("SetAge",
+		"Введите возраст",
+		func(c tele.Context) (nextState string, err error) {
+			err = SetStateVar(c, "Age", c.Message().Text)
+			val, ok, err := GetStateVar(c, "UserName")
+			fmt.Println(val)
+			fmt.Println(ok)
+			val, ok, err = GetStateVar(c, "UserNameLox")
+			fmt.Println(val)
+			fmt.Println(ok)
+			err = ClearStateVars(c)
+			return ResetState, err
 		})
 }
 
@@ -49,10 +60,10 @@ func setupHandlers(bot *StatefulBot) {
 		if UserIsInDatabase(userID) {
 			return c.Reply("Welcome back!")
 		}
-		return bot.states.TriggerState(c, "StartSurvey")
+		return bot.fsm.TriggerState(c, "StartSurvey")
 	})
 
 	bot.Handle(tele.OnText, func(c tele.Context) error {
-		return bot.states.UpdateState(c)
+		return bot.fsm.UpdateState(c)
 	})
 }
