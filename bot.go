@@ -7,7 +7,7 @@ import (
 
 type StatefulBot struct {
 	*tele.Bot
-	states States
+	states FSM
 }
 
 func InitBot(cfg Config) *StatefulBot {
@@ -19,7 +19,7 @@ func InitBot(cfg Config) *StatefulBot {
 		panic(fmt.Errorf("InitBot: %w", err))
 	}
 
-	states := CreateStates()
+	states := NewFSM()
 	statefulBot := &StatefulBot{
 		bot,
 		states,
@@ -36,7 +36,7 @@ func setupStates(bot *StatefulBot) {
 		"Привет! Чтобы зарегистрироваться в боте надо пройти опрос. Как я могу к тебе обращаться?",
 		func(c tele.Context) (nextState string, e error) {
 			if c.Message().Text == "1" {
-				return NoState, c.Reply("ENTER YOUR NAMEEE!!!")
+				return ResumeState, c.Reply("ENTER YOUR NAMEEE!!!")
 			}
 			fmt.Println(c.Message().Text)
 			return ResetState, nil
