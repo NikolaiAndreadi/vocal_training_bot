@@ -34,6 +34,7 @@ func InitDbConnection(cfg Config) *pgxpool.Pool {
 // CreateSchema creates db schemas
 func createSchema(conn *pgxpool.Pool) {
 	schema := `
+	DROP TABLE IF EXISTS users CASCADE;
 	CREATE TABLE IF NOT EXISTS users (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		username		varchar(50), -- user name TODO extract from user data
@@ -47,20 +48,23 @@ func createSchema(conn *pgxpool.Pool) {
 		PRIMARY KEY (user_id)
 	);
 
+	DROP TABLE IF EXISTS states CASCADE;
 	CREATE TABLE IF NOT EXISTS states (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		state			text,
-		temp_vars		jsonb,
+		temp_vars		jsonb		NOT NULL DEFAULT '{}'::jsonb,
 		
 		PRIMARY KEY (user_id)
 	);
 
+	DROP TABLE IF EXISTS warmup_global_notifications CASCADE;
 	CREATE TABLE IF NOT EXISTS warmup_global_notifications (
 	    user_id	int8	REFERENCES users(user_id),
 	    online	bool	NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_global_notifications__user_id ON warmup_global_notifications(user_id);
 
+	DROP TABLE IF EXISTS warmup_notification_timings CASCADE;
 	CREATE TABLE IF NOT EXISTS warmup_notification_timings (
 		user_id		int8		REFERENCES users(user_id),
 		online		bool		NOT NULL,
@@ -69,7 +73,7 @@ func createSchema(conn *pgxpool.Pool) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__user_id ON warmup_notification_timings(user_id);
 
-
+	DROP TABLE IF EXISTS warmup_cheerups CASCADE;
 	CREATE TABLE IF NOT EXISTS warmup_cheerups (
 		cheerup_id	serial	NOT NULL,
 		cheerup_txt	text	NOT NULL,
@@ -78,6 +82,7 @@ func createSchema(conn *pgxpool.Pool) {
 		PRIMARY KEY (cheerup_id)
 	);
 
+	DROP TABLE IF EXISTS warmup_log CASCADE;
 	CREATE TABLE IF NOT EXISTS warmup_log (
 	    user_id		int8		REFERENCES users(user_id),
 	    exec_dt		timestamp,	-- timezone from users.timezone_raw
@@ -86,7 +91,7 @@ func createSchema(conn *pgxpool.Pool) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_log__user_id ON warmup_log(user_id);
 
-
+	DROP TABLE IF EXISTS become_student_requests CASCADE;
 	CREATE TABLE IF NOT EXISTS become_student_requests (
 		user_id		int8		REFERENCES users(user_id),
 	    datetime    timestamp,
@@ -94,6 +99,7 @@ func createSchema(conn *pgxpool.Pool) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_become_student_requests__resolved ON become_student_requests(resolved);
 
+	DROP TABLE IF EXISTS blog_messages CASCADE;
 	CREATE TABLE IF NOT EXISTS blog_messages (
 	    message_id	serial,
 	    datetime    timestamp	NOT NULL,
@@ -104,6 +110,7 @@ func createSchema(conn *pgxpool.Pool) {
 	); -- TODO views count!!!
 	CREATE INDEX IF NOT EXISTS idx_blog_messages__posted ON blog_messages(posted);
 	
+	DROP TABLE IF EXISTS texts CASCADE;
 	CREATE TABLE IF NOT EXISTS texts (
 	    name		text NOT NULL,
 	    description text NOT NULL,
