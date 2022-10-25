@@ -75,6 +75,12 @@ func (s *FSM) AddState(stateName string, OnTrigger interface{}, stateSetter Stat
 
 // TriggerState is a starting point of the state
 func (s *FSM) TriggerState(c tele.Context, stateName string) error {
+	if stateName == ResumeState {
+		return nil
+	}
+	if stateName == ResetState {
+		return s.ResetState(c)
+	}
 	// validate stateName
 	if !s.containsStateName(stateName) {
 		return fmt.Errorf("TriggerState: Unknown state '%s'", stateName)
