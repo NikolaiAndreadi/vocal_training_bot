@@ -25,8 +25,10 @@ type StateSetterType func(c tele.Context) (nextState string, err error)
 // TextOnTrigger will be shown to user right after State is triggered
 // Corresponding StateSetter would be triggered on FSM.UpdateState method
 type State struct {
-	TextOnTrigger string
-	StateSetter   StateSetterType
+	OnTrigger      interface{}
+	ExtraOnTrigger []interface{}
+
+	StateSetter StateSetterType
 }
 
 // FSM is a finite state machine structure
@@ -55,15 +57,16 @@ func (s *FSM) containsStateName(stateName string) bool {
 // AddState method adds a new State to the FSM with unique stateName.
 // textOnTrigger will be shown to user right after State is triggered
 // Corresponding stateSetter would be triggered on FSM.UpdateState method
-func (s *FSM) AddState(stateName string, textOnTrigger string, stateSetter StateSetterType) {
+func (s *FSM) AddState(stateName string, OnTrigger interface{}, stateSetter StateSetterType, ExtraOnTrigger ...interface{}) {
 	// check uniqueness of the stateName
 	if s.containsStateName(stateName) {
 		panic(fmt.Errorf("AddState: State %s already exists", stateName))
 	}
 
 	state := State{
-		TextOnTrigger: textOnTrigger,
-		StateSetter:   stateSetter,
+		OnTrigger:      OnTrigger,
+		ExtraOnTrigger: ExtraOnTrigger,
+		StateSetter:    stateSetter,
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -86,7 +89,7 @@ func (s *FSM) TriggerState(c tele.Context, stateName string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if state, ok := s.statePool[stateName]; ok {
-		return c.Send(state.TextOnTrigger)
+		return c.Send(state.OnTrigger, state.ExtraOnTrigger...)
 	} else {
 		return fmt.Errorf("TriggerState: Unknown state '%s'", stateName)
 	}
