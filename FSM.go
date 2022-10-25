@@ -86,7 +86,7 @@ func (s *FSM) TriggerState(c tele.Context, stateName string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if state, ok := s.statePool[stateName]; ok {
-		return c.Reply(state.TextOnTrigger)
+		return c.Send(state.TextOnTrigger)
 	} else {
 		return fmt.Errorf("TriggerState: Unknown state '%s'", stateName)
 	}
@@ -103,7 +103,7 @@ func (s *FSM) UpdateState(c tele.Context) error {
 		return err
 	}
 	if stateName == NoState {
-		return c.Reply("I can't respond to this message")
+		return c.Reply("Не могу ответить на это сообщение =(")
 	}
 
 	s.mu.RLock()
