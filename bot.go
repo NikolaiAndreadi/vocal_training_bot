@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"golang.org/x/exp/slices"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	tele "gopkg.in/telebot.v3"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/slices"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	tele "gopkg.in/telebot.v3"
 )
 
 var (

@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/kelseyhightower/envconfig"
 	"gopkg.in/validator.v2"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
 const yamlCfgName = "config.yml"

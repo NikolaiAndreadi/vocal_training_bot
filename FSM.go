@@ -6,9 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+
 	"github.com/jackc/pgx/v5"
 	tele "gopkg.in/telebot.v3"
-	"sync"
 )
 
 const (

@@ -1,8 +1,9 @@
 package main
 
 import (
-	tele "gopkg.in/telebot.v3"
 	"math"
+
+	tele "gopkg.in/telebot.v3"
 )
 
 func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int) *tele.ReplyMarkup {
