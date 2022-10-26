@@ -126,9 +126,10 @@ func createSchema(conn *pgxpool.Pool) {
 }
 
 func UserIsInDatabase(UserID int64) bool {
-	err := DB.QueryRow(context.Background(), "SELECT user_id from users where user_id = $1", UserID).Scan()
+	var userID int64
+	err := DB.QueryRow(context.Background(), "SELECT user_id from users where user_id = $1", UserID).Scan(&userID)
 	if err == nil {
-		return true
+		return userID != 0
 	}
 	if err == pgx.ErrNoRows {
 		return false
