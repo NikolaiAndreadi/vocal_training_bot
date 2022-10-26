@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	tele "gopkg.in/telebot.v3"
@@ -103,6 +104,11 @@ func (s *FSM) TriggerState(c tele.Context, stateName string) error {
 
 // ResetState clears out saved state in the database
 func (s *FSM) ResetState(c tele.Context) error {
+	err := ClearStateVars(c)
+	if err != nil {
+		fmt.Println("ResetState: %w", err)
+	}
+
 	return setStateToDB(c, "")
 }
 
@@ -169,7 +175,22 @@ func GetStateVar(c tele.Context, varName string) (value string, ok bool, err err
 	if err == pgx.ErrNoRows {
 		err = nil
 	}
+	return
+}
 
+func GetStateVars(c tele.Context) (values map[string]string, err error) {
+	userID := c.Sender().ID
+
+	var strJSON []byte
+	err = DB.QueryRow(context.Background(), `
+		SELECT temp_vars FROM states
+		WHERE user_id = $1
+		`, userID).Scan(&strJSON)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	err = json.Unmarshal(strJSON, &values)
 	return
 }
 
