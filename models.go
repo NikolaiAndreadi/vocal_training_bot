@@ -42,6 +42,7 @@ func createSchema(conn *pgxpool.Pool) {
 		city			varchar(50), -- city name
 		timezone_raw	int4  		CHECK (timezone_raw BETWEEN -720 AND 840), -- shift from UTC in minutes
 		timezone_txt	text		NOT NULL, -- text representation of timezone, from google maps API
+		experience      VARCHAR(20) NOT NULL, -- experience of vocal training
 		user_class		VARCHAR(7)  NOT NULL DEFAULT 'USER' CHECK (user_class IN ('USER', 'ADMIN', 'BANNED')), -- group for user
 		join_dt			timestamp	NOT NULL, -- UTC timestamp of connection to the bot
 		
