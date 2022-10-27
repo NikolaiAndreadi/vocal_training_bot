@@ -10,14 +10,12 @@ func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int) *te
 	menu := &tele.ReplyMarkup{
 		ResizeKeyboard:  true,
 		OneTimeKeyboard: true,
+		RemoveKeyboard:  true,
 	}
 
 	itemCount := len(possibleSelections)
-
-	var rowCount int
-	if itemCount < maxElementsInRow {
-		rowCount = 1
-	} else {
+	rowCount := 1
+	if itemCount > maxElementsInRow {
 		rowCount = int(math.Ceil(float64(itemCount) / float64(maxElementsInRow)))
 	}
 
