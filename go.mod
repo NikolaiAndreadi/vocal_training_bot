@@ -3,7 +3,6 @@ module vocal_training_bot
 go 1.19
 
 require (
-	github.com/hashicorp/go-multierror v1.1.0
 	github.com/jackc/pgx/v5 v5.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	golang.org/x/exp v0.0.0-20221026004748-78e5e7837ae6
@@ -14,7 +13,6 @@ require (
 )
 
 require (
-	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/puddle/v2 v2.0.0 // indirect

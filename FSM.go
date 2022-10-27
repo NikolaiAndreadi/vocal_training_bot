@@ -102,6 +102,7 @@ func (s *FSM) TriggerState(c tele.Context, stateName string) error {
 		if err != nil {
 			return fmt.Errorf("TriggerState: %w", err)
 		}
+		return nil
 	}
 
 	// validate stateName

@@ -41,7 +41,7 @@ var (
 	matchingPatternTime = regexp.MustCompile("[0-9]?[0-9]:[0-9][0-9]")
 
 	SurveySGSetExperiencePossibleVariants = []string{"без опыта", "менее 1 года", "1-2 года", "2-3 года", "3-5 лет", "более 5 лет"}
-	SurveySGSetExperienceMenu             = ReplyMenuConstructor(SurveySGSetExperiencePossibleVariants, 2)
+	SurveySGSetExperienceMenu             = ReplyMenuConstructor(SurveySGSetExperiencePossibleVariants, 2, true)
 )
 
 func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, utcMinutesShift string, err error) {
@@ -256,7 +256,7 @@ func setupSurveyStateGroup(fsm *FSM) {
 			}
 
 			err = c.Send("Спасибо! Ты зарегистрирован в системе бота и теперь тебе доступна его функциональность!",
-				&tele.ReplyMarkup{RemoveKeyboard: true})
+				&tele.ReplyMarkup{RemoveKeyboard: true}, MainUserMenu)
 
 			return ResetState, err
 		}, SurveySGSetExperienceMenu)

@@ -6,6 +6,17 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
+var (
+	MainUserMenuOptions = []string{
+		"Распевки",
+		"Напоминания",
+		"Записаться на урок",
+		"Обо мне",
+		"Настройки аккаунта",
+	}
+	MainUserMenu = ReplyMenuConstructor(MainUserMenuOptions, 2, false)
+)
+
 func InitBot(cfg Config) *tele.Bot {
 	teleCfg := tele.Settings{
 		Token: cfg.Bot.Token,
@@ -31,12 +42,23 @@ func setupHandlers(bot *tele.Bot, fsm *FSM) {
 		}
 
 		if ok {
-			return c.Reply("Привет! Ты зарегистрирован в боте, тебе доступна его функциональность!")
+			return c.Reply("Привет! Ты зарегистрирован в боте, тебе доступна его функциональность!", MainUserMenu)
 		}
 		return fsm.TriggerState(c, SurveySGStartSurveyReqName)
 	})
 
 	bot.Handle(tele.OnText, func(c tele.Context) error {
-		return fsm.UpdateState(c)
+		userID := c.Sender().ID
+
+		ok, err := UserIsInDatabase(userID)
+		if err != nil {
+			return fmt.Errorf("/start[%d]: %w", userID, err)
+		}
+
+		if !ok {
+			return fsm.UpdateState(c)
+		}
+
+		return nil
 	})
 }

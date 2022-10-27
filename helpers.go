@@ -6,11 +6,11 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int) *tele.ReplyMarkup {
+func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int, once bool) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{
 		ResizeKeyboard:  true,
-		OneTimeKeyboard: true,
-		RemoveKeyboard:  true,
+		OneTimeKeyboard: once,
+		RemoveKeyboard:  once,
 	}
 
 	itemCount := len(possibleSelections)
