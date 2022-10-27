@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/kelseyhightower/envconfig"
 	"gopkg.in/validator.v2"
 	"gopkg.in/yaml.v3"
@@ -36,8 +37,7 @@ func parseYamlConfig(cfg *Config) error {
 	}
 	defer func(f *os.File) {
 		if err := f.Close(); err != nil {
-			wrappedErr := fmt.Errorf("parseYamlConfig: Error while closing file: %w", err)
-			fmt.Println(wrappedErr.Error()) // TODO: logger
+			err = fmt.Errorf("parseYamlConfig: Error while closing file: %w", err)
 		}
 	}(f)
 
@@ -50,22 +50,23 @@ func parseYamlConfig(cfg *Config) error {
 
 func parseEnvConfig(cfg *Config) error {
 	err := envconfig.Process("", cfg)
-	return err
+	if err != nil {
+		return fmt.Errorf("parseEnvConfig: %w", err)
+	}
+	return nil
 }
 
-func ParseConfig() Config {
+func ParseConfig() (Config, error) {
 	var cfg Config
 	yamlErr := parseYamlConfig(&cfg)
 	envErr := parseEnvConfig(&cfg)
 
-	if yamlErr != nil && envErr != nil {
-		panic(fmt.Errorf("ParseConfig: Failed to extract config: yaml(%s), env(%s)",
-			yamlErr.Error(), envErr.Error()))
+	mErr := multierror.Append(yamlErr, envErr)
+
+	if err := validator.Validate(cfg); err != nil {
+		mErr = multierror.Append(mErr, fmt.Errorf("ParseConfig: Failed to extract all fields for config: %w", err))
+		panic(mErr)
 	}
 
-	if errs := validator.Validate(cfg); errs != nil {
-		panic(fmt.Errorf("ParseConfig: Failed to extract all fields for config: %w", errs))
-	}
-
-	return cfg
+	return cfg, mErr
 }
