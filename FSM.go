@@ -43,8 +43,8 @@ type FSM struct {
 }
 
 // NewFSM is a constructor of the FSM struct
-func NewFSM(db *pgxpool.Pool) FSM {
-	return FSM{
+func NewFSM(db *pgxpool.Pool) *FSM {
+	return &FSM{
 		db:        db,
 		statePool: make(map[string]State),
 		mu:        &sync.RWMutex{},
