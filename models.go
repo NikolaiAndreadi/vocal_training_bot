@@ -38,7 +38,7 @@ func createSchema(conn *pgxpool.Pool) {
 	DROP TABLE IF EXISTS users CASCADE;
 	CREATE TABLE IF NOT EXISTS users (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
-		username		varchar(50), -- user name TODO extract from user data
+		username		varchar(50), -- user name
 		age				int2  		CHECK (age > 0),
 		city			varchar(50), -- city name
 		timezone_raw	int4  		CHECK (timezone_raw BETWEEN -720 AND 840), -- shift from UTC in minutes
@@ -109,7 +109,7 @@ func createSchema(conn *pgxpool.Pool) {
 		posted		bool,
 	    
 	    PRIMARY KEY (message_id)
-	); -- TODO views count!!!
+	);
 	CREATE INDEX IF NOT EXISTS idx_blog_messages__posted ON blog_messages(posted);
 	
 	DROP TABLE IF EXISTS texts CASCADE;
