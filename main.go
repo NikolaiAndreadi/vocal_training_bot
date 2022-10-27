@@ -1,7 +1,7 @@
 package main
 
 func main() {
-	cfg, _ := ParseConfig()
+	cfg := ParseConfig()
 
 	DB = InitDbConnection(cfg)
 

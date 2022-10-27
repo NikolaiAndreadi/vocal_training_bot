@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/kelseyhightower/envconfig"
 	"gopkg.in/validator.v2"
 	"gopkg.in/yaml.v3"
@@ -56,17 +55,22 @@ func parseEnvConfig(cfg *Config) error {
 	return nil
 }
 
-func ParseConfig() (Config, error) {
+func ParseConfig() Config {
 	var cfg Config
 	yamlErr := parseYamlConfig(&cfg)
 	envErr := parseEnvConfig(&cfg)
 
-	mErr := multierror.Append(yamlErr, envErr)
-
+	// TODO: Add logger
+	if yamlErr != nil {
+		fmt.Println(yamlErr)
+	}
+	if envErr != nil {
+		fmt.Println(envErr)
+	}
 	if err := validator.Validate(cfg); err != nil {
-		mErr = multierror.Append(mErr, fmt.Errorf("ParseConfig: Failed to extract all fields for config: %w", err))
-		panic(mErr)
+		err = fmt.Errorf("ParseConfig: Failed to extract all fields for config: %w", err)
+		panic(err)
 	}
 
-	return cfg, mErr.ErrorOrNil()
+	return cfg
 }

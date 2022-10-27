@@ -93,6 +93,10 @@ func (s *FSM) ResetState(c tele.Context) error {
 
 // TriggerState is a starting point of the state
 func (s *FSM) TriggerState(c tele.Context, stateName string) error {
+	if stateName == ResumeState {
+		return nil
+	}
+
 	if stateName == ResetState {
 		err := s.ResetState(c)
 		if err != nil {

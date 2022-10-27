@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
@@ -57,7 +56,7 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 		return
 	}
 	deltaMinutes = deltaMinutes.Round(30 * time.Minute)
-	utcMinutesShift = fmt.Sprintf("%f.0f", deltaMinutes.Minutes()) // save output
+	utcMinutesShift = strconv.Itoa(int(deltaMinutes.Minutes())) // save output
 
 	// utcTimezone representation
 	var offsetSign rune
@@ -92,9 +91,14 @@ func setupSurveyStateGroup(fsm *FSM) {
 			name = cases.Title(language.Tag{}).String(name)
 
 			err = fsm.SetStateVar(c, surveySGVarName, name)
+			// TODO: add log here
+			if err != nil {
+				fmt.Println(err)
+			}
 
-			err = multierror.Append(err, c.Send(fmt.Sprintf("Приятно познакомиться, %s", name)))
-			return surveySGSetAge, err.(*multierror.Error).ErrorOrNil()
+			err = c.Send(fmt.Sprintf("Приятно познакомиться, %s", name))
+
+			return surveySGSetAge, err
 		})
 
 	fsm.AddState(surveySGSetAge,
@@ -180,12 +184,18 @@ func setupSurveyStateGroup(fsm *FSM) {
 				return ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55")
 			}
 
-			err1 := fsm.SetStateVar(c, surveySGVarTimezoneRaw, utcMinutesShift)
-			err2 := fsm.SetStateVar(c, surveySGVarTimezoneStr, utcTimezone)
+			if err = fsm.SetStateVar(c, surveySGVarTimezoneRaw, utcMinutesShift); err != nil {
+				// TODO: logger here
+				fmt.Println(fmt.Errorf("%s[%d]: can't save %s", surveySGSetTimezone, c.Sender().ID, surveySGVarTimezoneRaw))
+			}
+			if err = fsm.SetStateVar(c, surveySGVarTimezoneStr, utcTimezone); err != nil {
+				// TODO: logger here
+				fmt.Println(fmt.Errorf("%s[%d]: can't save %s", surveySGSetTimezone, c.Sender().ID, surveySGVarTimezoneStr))
+			}
 
-			err3 := c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
+			err = c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
 
-			return surveySGSetExperience, multierror.Append(err1, err2, err3).ErrorOrNil()
+			return surveySGSetExperience, err
 		})
 
 	fsm.AddState(surveySGSetExperience,
@@ -201,35 +211,38 @@ func setupSurveyStateGroup(fsm *FSM) {
 			}
 
 			// CLOSE SURVEY
-			values, mErr := fsm.GetStateVars(c)
+			values, err := fsm.GetStateVars(c)
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't extract vars", surveySGSetExperience, c.Sender().ID))
+			}
 
 			name, ok := values[surveySGVarName]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarName))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarName))
 			}
 			ageStr, ok := values[surveySGVarAge]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarAge))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarAge))
 			}
 			age, err := strconv.Atoi(ageStr)
 			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't atoi %s", surveySGSetExperience, c.Sender().ID, surveySGVarAge))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't atoi %s", surveySGSetExperience, c.Sender().ID, surveySGVarAge))
 			}
 			city, ok := values[surveySGVarCity]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarCity))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarCity))
 			}
 			timezoneTxt, ok := values[surveySGVarTimezoneStr]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneStr))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneStr))
 			}
 			timezoneRawStr, ok := values[surveySGVarTimezoneRaw]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneRaw))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneRaw))
 			}
 			timezoneRaw, err := strconv.Atoi(timezoneRawStr)
 			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't atoi %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneRaw))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't atoi %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneRaw))
 			}
 			joinTime := time.Now().UTC()
 
@@ -239,15 +252,12 @@ func setupSurveyStateGroup(fsm *FSM) {
 				`, c.Sender().ID, name, age, city, timezoneRaw, timezoneTxt, expVariant, joinTime)
 
 			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't exec insert into db", surveySGSetExperience, c.Sender().ID))
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", surveySGSetExperience, c.Sender().ID))
 			}
 
 			err = c.Send("Спасибо! Ты зарегистрирован в системе бота и теперь тебе доступна его функциональность!",
 				&tele.ReplyMarkup{RemoveKeyboard: true})
-			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't send a message", surveySGSetExperience, c.Sender().ID))
-			}
 
-			return ResetState, mErr.(*multierror.Error).ErrorOrNil()
+			return ResetState, err
 		}, SurveySGSetExperienceMenu)
 }
