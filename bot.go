@@ -33,7 +33,7 @@ func setupHandlers(bot *tele.Bot, fsm *FSM) {
 		if ok {
 			return c.Reply("Привет! Ты зарегистрирован в боте, тебе доступна его функциональность!")
 		}
-		return fsm.TriggerState(c, "StartSurvey")
+		return fsm.TriggerState(c, SurveySGStartSurveyReqName)
 	})
 
 	bot.Handle(tele.OnText, func(c tele.Context) error {

@@ -24,16 +24,16 @@ func SetupStates(db *pgxpool.Pool) *FSM {
 
 const (
 	SurveySGStartSurveyReqName = "SurveyStateGroup_StartSurveyReqName"
-	SurveySGSetAge             = "SurveyStateGroup_SetAge"
-	SurveySGSetCity            = "SurveyStateGroup_SetCity"
-	SurveySGSetTimezone        = "SurveyStateGroup_SetTimezone"
-	SurveySGSetExperience      = "SurveyStateGroup_SetExperience"
+	surveySGSetAge             = "SurveyStateGroup_SetAge"
+	surveySGSetCity            = "SurveyStateGroup_SetCity"
+	surveySGSetTimezone        = "SurveyStateGroup_SetTimezone"
+	surveySGSetExperience      = "SurveyStateGroup_SetExperience"
 
-	SurveySGVarName        = "Name"
-	SurveySGVarAge         = "Age"
-	SurveySGVarCity        = "City"
-	SurveySGVarTimezoneRaw = "TimezoneRaw"
-	SurveySGVarTimezoneStr = "TimezoneTxt"
+	surveySGVarName        = "Name"
+	surveySGVarAge         = "Age"
+	surveySGVarCity        = "City"
+	surveySGVarTimezoneRaw = "TimezoneRaw"
+	surveySGVarTimezoneStr = "TimezoneTxt"
 )
 
 var (
@@ -90,13 +90,13 @@ func setupSurveyStateGroup(fsm *FSM) {
 				return ResumeState, c.Send("Имя должно включать только русские или английские буквы и быть 2 - 50 символов")
 			}
 			name = cases.Title(language.Tag{}).String(name)
-			err = fsm.SetStateVar(c, SurveySGVarName, name)
+			err = fsm.SetStateVar(c, surveySGVarName, name)
 
 			err = multierror.Append(err, c.Send("Приятно познакомиться, %s", name))
-			return SurveySGSetAge, err
+			return surveySGSetAge, err
 		})
 
-	fsm.AddState(SurveySGSetAge,
+	fsm.AddState(surveySGSetAge,
 		"(2/5) Теперь скажи, сколько тебе лет?",
 		func(c tele.Context) (nextState string, err error) {
 			ageText := c.Message().Text
@@ -116,11 +116,11 @@ func setupSurveyStateGroup(fsm *FSM) {
 				return ResumeState, c.Send("Да ты совсем взрослый! Давай по-чесноку, сколько лет?")
 			}
 
-			err = fsm.SetStateVar(c, SurveySGVarAge, ageText)
-			return SurveySGSetCity, err
+			err = fsm.SetStateVar(c, surveySGVarAge, ageText)
+			return surveySGSetCity, err
 		})
 
-	fsm.AddState(SurveySGSetCity,
+	fsm.AddState(surveySGSetCity,
 		"(3/5) Отлично! А в каком городе живешь?",
 		func(c tele.Context) (nextState string, err error) {
 			city := c.Message().Text
@@ -134,11 +134,11 @@ func setupSurveyStateGroup(fsm *FSM) {
 			}
 			city = cases.Title(language.Tag{}).String(city)
 
-			err = fsm.SetStateVar(c, SurveySGVarCity, city)
-			return SurveySGSetTimezone, err
+			err = fsm.SetStateVar(c, surveySGVarCity, city)
+			return surveySGSetTimezone, err
 		})
 
-	fsm.AddState(SurveySGSetTimezone,
+	fsm.AddState(surveySGSetTimezone,
 		"(4/5) Сколько сейчас времени по твоим часам? Надо написать часы:минуты, например, 23:15. Это надо чтобы понять в каком часовом поясе ты находишься.",
 		func(c tele.Context) (nextState string, err error) {
 			userTimeTxt := c.Message().Text
@@ -179,15 +179,15 @@ func setupSurveyStateGroup(fsm *FSM) {
 				return ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55")
 			}
 
-			err1 := fsm.SetStateVar(c, SurveySGVarTimezoneRaw, utcMinutesShift)
-			err2 := fsm.SetStateVar(c, SurveySGVarTimezoneStr, utcTimezone)
+			err1 := fsm.SetStateVar(c, surveySGVarTimezoneRaw, utcMinutesShift)
+			err2 := fsm.SetStateVar(c, surveySGVarTimezoneStr, utcTimezone)
 
 			err3 := c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
 
-			return SurveySGSetExperience, multierror.Append(err1, err2, err3)
+			return surveySGSetExperience, multierror.Append(err1, err2, err3)
 		})
 
-	fsm.AddState(SurveySGSetExperience,
+	fsm.AddState(surveySGSetExperience,
 		"(5/5) Сколько занимаешься вокалом?",
 		func(c tele.Context) (nextState string, err error) {
 			expVariant := c.Text()
@@ -202,33 +202,33 @@ func setupSurveyStateGroup(fsm *FSM) {
 			// CLOSE SURVEY
 			values, mErr := fsm.GetStateVars(c)
 
-			name, ok := values[SurveySGVarName]
+			name, ok := values[surveySGVarName]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", SurveySGSetExperience, c.Sender().ID, SurveySGVarName))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarName))
 			}
-			ageStr, ok := values[SurveySGVarAge]
+			ageStr, ok := values[surveySGVarAge]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", SurveySGSetExperience, c.Sender().ID, SurveySGVarAge))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarAge))
 			}
 			age, err := strconv.Atoi(ageStr)
 			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't atoi %s", SurveySGSetExperience, c.Sender().ID, SurveySGVarAge))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't atoi %s", surveySGSetExperience, c.Sender().ID, surveySGVarAge))
 			}
-			city, ok := values[SurveySGVarCity]
+			city, ok := values[surveySGVarCity]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", SurveySGSetExperience, c.Sender().ID, SurveySGVarCity))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarCity))
 			}
-			timezoneTxt, ok := values[SurveySGVarTimezoneStr]
+			timezoneTxt, ok := values[surveySGVarTimezoneStr]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", SurveySGSetExperience, c.Sender().ID, SurveySGVarTimezoneStr))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneStr))
 			}
-			timezoneRawStr, ok := values[SurveySGVarTimezoneRaw]
+			timezoneRawStr, ok := values[surveySGVarTimezoneRaw]
 			if !ok {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", SurveySGSetExperience, c.Sender().ID, SurveySGVarTimezoneRaw))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't decode %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneRaw))
 			}
 			timezoneRaw, err := strconv.Atoi(timezoneRawStr)
 			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't atoi %s", SurveySGSetExperience, c.Sender().ID, SurveySGVarTimezoneRaw))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't atoi %s", surveySGSetExperience, c.Sender().ID, surveySGVarTimezoneRaw))
 			}
 			joinTime := time.Now().UTC()
 
@@ -238,13 +238,13 @@ func setupSurveyStateGroup(fsm *FSM) {
 				`, c.Sender().ID, name, age, city, timezoneRaw, timezoneTxt, expVariant, joinTime)
 
 			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't exec insert into db", SurveySGSetExperience, c.Sender().ID))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't exec insert into db", surveySGSetExperience, c.Sender().ID))
 			}
 
 			err = c.Send("Спасибо! Ты зарегистрирован в системе бота и теперь тебе доступна его функциональность!",
 				&tele.ReplyMarkup{RemoveKeyboard: true})
 			if err != nil {
-				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't send a message", SurveySGSetExperience, c.Sender().ID))
+				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't send a message", surveySGSetExperience, c.Sender().ID))
 			}
 
 			return ResetState, mErr
