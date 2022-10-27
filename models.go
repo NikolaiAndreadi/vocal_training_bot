@@ -19,12 +19,12 @@ func InitDbConnection(cfg Config) *pgxpool.Pool {
 
 	pgCfg, err := pgxpool.ParseConfig(DSN)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("InitDbConnection: ParseConfig: %w", err))
 	}
 
 	db, err := pgxpool.NewWithConfig(context.Background(), pgCfg)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("InitDbConnection: NewWithConfig: %w", err))
 	}
 
 	createSchema(db)
@@ -122,18 +122,20 @@ func createSchema(conn *pgxpool.Pool) {
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {
-		panic(err)
+		panic(fmt.Errorf("createSchema: %w", err))
+
 	}
 }
 
-func UserIsInDatabase(UserID int64) bool {
+func UserIsInDatabase(UserID int64) (bool, error) {
 	var userID int64
 	err := DB.QueryRow(context.Background(), "SELECT user_id from users where user_id = $1", UserID).Scan(&userID)
 	if err == nil {
-		return userID != 0
+		return userID != 0, nil
 	}
 	if err == pgx.ErrNoRows {
-		return false
+		return false, nil
 	}
-	panic(fmt.Errorf("UserIsInDatabase: %w", err))
+
+	return false, fmt.Errorf("UserIsInDatabase[%d]: %w", UserID, err)
 }
