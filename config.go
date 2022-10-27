@@ -68,5 +68,5 @@ func ParseConfig() (Config, error) {
 		panic(mErr)
 	}
 
-	return cfg, mErr
+	return cfg, mErr.ErrorOrNil()
 }

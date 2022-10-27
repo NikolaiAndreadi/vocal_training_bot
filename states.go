@@ -90,10 +90,11 @@ func setupSurveyStateGroup(fsm *FSM) {
 				return ResumeState, c.Send("Имя должно включать только русские или английские буквы и быть 2 - 50 символов")
 			}
 			name = cases.Title(language.Tag{}).String(name)
+
 			err = fsm.SetStateVar(c, surveySGVarName, name)
 
-			err = multierror.Append(err, c.Send("Приятно познакомиться, %s", name))
-			return surveySGSetAge, err
+			err = multierror.Append(err, c.Send(fmt.Sprintf("Приятно познакомиться, %s", name)))
+			return surveySGSetAge, err.(*multierror.Error).ErrorOrNil()
 		})
 
 	fsm.AddState(surveySGSetAge,
@@ -184,7 +185,7 @@ func setupSurveyStateGroup(fsm *FSM) {
 
 			err3 := c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
 
-			return surveySGSetExperience, multierror.Append(err1, err2, err3)
+			return surveySGSetExperience, multierror.Append(err1, err2, err3).ErrorOrNil()
 		})
 
 	fsm.AddState(surveySGSetExperience,
@@ -247,6 +248,6 @@ func setupSurveyStateGroup(fsm *FSM) {
 				mErr = multierror.Append(mErr, fmt.Errorf("state %s[%d]: Can't send a message", surveySGSetExperience, c.Sender().ID))
 			}
 
-			return ResetState, mErr
+			return ResetState, mErr.(*multierror.Error).ErrorOrNil()
 		}, SurveySGSetExperienceMenu)
 }
