@@ -3,7 +3,7 @@ telegram bot for @vershkovaaa
 
 bot API:  
 
-    /start - starts survey  DONE
+    /start - starts survey  
     ask for: Name, Age, City, Timezone, Experience (Newbie, < 1 year, 1-2 years, 2-3 years, 3-5 years, > 5 years)
     then: add to **users** table
     ! No functions are available until survey completion

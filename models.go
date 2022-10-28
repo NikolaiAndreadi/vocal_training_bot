@@ -35,7 +35,6 @@ func InitDbConnection(cfg Config) *pgxpool.Pool {
 // CreateSchema creates db schemas
 func createSchema(conn *pgxpool.Pool) {
 	schema := `
-	DROP TABLE IF EXISTS users CASCADE;
 	CREATE TABLE IF NOT EXISTS users (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		username		varchar(50), -- user name
