@@ -122,3 +122,7 @@ SCRATCHPAD:
     - On correct cheerup don't change message to drastically, as it helps to understand which is efficient and which is not
     - what is warmup?
     - add healhchecks, grafana, prometheus etc...
+
+TODO:
+    after settings change - update value in menu
+    DATE BUG!!!

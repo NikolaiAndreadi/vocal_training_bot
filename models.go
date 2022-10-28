@@ -138,3 +138,16 @@ func UserIsInDatabase(UserID int64) (bool, error) {
 
 	return false, fmt.Errorf("UserIsInDatabase[%d]: %w", UserID, err)
 }
+
+func UserHasState(UserID int64) (bool, error) {
+	var state string
+	err := DB.QueryRow(context.Background(), "SELECT state from states where user_id = $1", UserID).Scan(&state)
+	if err == nil {
+		return state != NoState, nil
+	}
+	if err == pgx.ErrNoRows {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("UserHasState[%d]: %w", UserID, err)
+}

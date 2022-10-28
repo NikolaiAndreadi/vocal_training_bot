@@ -18,6 +18,7 @@ import (
 func SetupStates(db *pgxpool.Pool) *FSM {
 	fsm := NewFSM(db)
 	setupSurveyStateGroup(fsm)
+	setupSettingsStateGroup(fsm)
 	return fsm
 }
 
@@ -33,6 +34,12 @@ const (
 	surveySGVarCity        = "City"
 	surveySGVarTimezoneRaw = "TimezoneRaw"
 	surveySGVarTimezoneStr = "TimezoneTxt"
+
+	SettingsSGSetName       = "SettingsStateGroup_SetName"
+	SettingsSGSetAge        = "SettingsStateGroup_SetAge"
+	SettingsSGSetCity       = "SettingsStateGroup_SetCity"
+	SettingsSGSetTimezone   = "SettingsStateGroup_SetTimezone"
+	SettingsSGSetExperience = "SettingsStateGroup_SetExperience"
 )
 
 var (
@@ -44,51 +51,122 @@ var (
 	SurveySGSetExperienceMenu             = ReplyMenuConstructor(SurveySGSetExperiencePossibleVariants, 2, true)
 )
 
-func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, utcMinutesShift string, err error) {
-	userMinutes = userMinutes + userHours*60
+func setupSettingsStateGroup(fsm *FSM) {
+	fsm.AddState(SettingsSGSetName,
+		"Введи новое имя",
+		func(c tele.Context) (nextState string, err error) {
+			name, s, err, exit := validateName(c)
+			if exit {
+				return s, err
+			}
 
-	utcTime := time.Now().UTC()
-	utcMinutes := utcTime.Minute() + utcTime.Hour()*60
+			_, err = DB.Exec(context.Background(), `
+				UPDATE users
+				SET username = $1
+				WHERE user_id = $2
+				`, name, c.Sender().ID)
 
-	deltaMinutes, err := time.ParseDuration(fmt.Sprintf("%dm", userMinutes-utcMinutes))
-	if err != nil {
-		err = fmt.Errorf("calcTimezoneByTimeshift(%d, %d): %w", userHours, userMinutes, err)
-		return
-	}
-	deltaMinutes = deltaMinutes.Round(30 * time.Minute)
-	utcMinutesShift = strconv.Itoa(int(deltaMinutes.Minutes())) // save output
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetName, c.Sender().ID))
+			}
 
-	// utcTimezone representation
-	var offsetSign rune
-	if deltaMinutes.Minutes() < 0 {
-		offsetSign = '-'
-	} else {
-		offsetSign = '+'
-	}
+			return ResetState, c.Send("Имя изменено")
+		})
 
-	deltaHoursFmt := deltaMinutes / time.Hour
-	deltaMinutes -= deltaHoursFmt * time.Hour
-	deltaMinutesFmt := deltaMinutes / time.Minute
-	utcTimezone = fmt.Sprintf("UTC%c%02d:%02d", offsetSign, deltaHoursFmt.Abs(), deltaMinutesFmt.Abs())
+	fsm.AddState(SettingsSGSetAge,
+		"Введи новый возраст",
+		func(c tele.Context) (nextState string, err error) {
+			ageText, s, err, exit := validateAge(c)
+			if exit {
+				return s, err
+			}
 
-	return
+			_, err = DB.Exec(context.Background(), `
+				UPDATE users
+				SET age = $1
+				WHERE user_id = $2
+				`, ageText, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetAge, c.Sender().ID))
+			}
+
+			return ResetState, c.Send("Возраст изменен")
+		})
+
+	fsm.AddState(SettingsSGSetCity,
+		"Введи новый город",
+		func(c tele.Context) (nextState string, err error) {
+			city, s, err, exit := validateCity(c)
+			if exit {
+				return s, err
+			}
+
+			_, err = DB.Exec(context.Background(), `
+				UPDATE users
+				SET city = $1
+				WHERE user_id = $2
+				`, city, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetCity, c.Sender().ID))
+			}
+
+			return ResetState, c.Send("Город изменен")
+		})
+
+	fsm.AddState(SettingsSGSetTimezone,
+		"Введи свое время (в формате ЧЧ:ММ, например 12:15 или 9:15)",
+		func(c tele.Context) (nextState string, err error) {
+			utcTimezone, utcMinutesShift, s, err, exit := validateTimezone(c)
+			if exit {
+				return s, err
+			}
+
+			_, err = DB.Exec(context.Background(), `
+				UPDATE users
+				SET timezone_txt = $1,
+				    timezone_raw = $2
+				WHERE user_id = $3
+				`, utcTimezone, utcMinutesShift, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetTimezone, c.Sender().ID))
+			}
+
+			return ResetState, c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
+		})
+
+	fsm.AddState(SettingsSGSetExperience,
+		"Сколько уже занимаешься вокалом?",
+		func(c tele.Context) (nextState string, err error) {
+			expVariant, s, err, exit := validateExperience(c)
+			if exit {
+				return s, err
+			}
+
+			_, err = DB.Exec(context.Background(), `
+				UPDATE users
+				SET experience = $1
+				WHERE user_id = $2
+				`, expVariant, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetExperience, c.Sender().ID))
+			}
+
+			return ResetState, c.Send("Опыт обновлен", &tele.ReplyMarkup{RemoveKeyboard: true}, MainUserMenu)
+		}, SurveySGSetExperienceMenu)
 }
 
 func setupSurveyStateGroup(fsm *FSM) {
 	fsm.AddState(SurveySGStartSurveyReqName,
 		"Привет! Чтобы пользоваться ботом надо сначала пройти опрос из нескольких вопросов.\n\n(1/5) Назови, пожалуйста, своё имя?",
 		func(c tele.Context) (nextState string, err error) {
-			// TODO: Refactor this as FSM.state.messageChan == text, img, audio...
-			name := c.Message().Text
-			if name == "" {
-				return ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)")
+			name, s, err, exit := validateName(c)
+			if exit {
+				return s, err
 			}
-
-			// VALIDATION
-			if ok := matchingPatternName.MatchString(name); !ok {
-				return ResumeState, c.Send("Имя должно включать только русские или английские буквы и быть 2 - 50 символов")
-			}
-			name = cases.Title(language.Tag{}).String(name)
 
 			err = fsm.SetStateVar(c, surveySGVarName, name)
 			// TODO: add log here
@@ -104,21 +182,9 @@ func setupSurveyStateGroup(fsm *FSM) {
 	fsm.AddState(surveySGSetAge,
 		"(2/5) Теперь скажи, сколько тебе лет?",
 		func(c tele.Context) (nextState string, err error) {
-			ageText := c.Message().Text
-			if ageText == "" {
-				return ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)")
-			}
-
-			// VALIDATION
-			age, err := strconv.Atoi(ageText)
-			if err != nil {
-				return ResumeState, c.Send("Возраст должен быть числом больше нуля, попробуй еще раз =)")
-			}
-			if age <= 0 {
-				return ResumeState, c.Send("Возраст должен быть числом больше нуля, попробуй еще раз =)")
-			}
-			if age > 100 {
-				return ResumeState, c.Send("Да ты совсем взрослый! Давай по-чесноку, сколько лет?")
+			ageText, s, err, exit := validateAge(c)
+			if exit {
+				return s, err
 			}
 
 			err = fsm.SetStateVar(c, surveySGVarAge, ageText)
@@ -128,16 +194,10 @@ func setupSurveyStateGroup(fsm *FSM) {
 	fsm.AddState(surveySGSetCity,
 		"(3/5) Отлично! А в каком городе живешь?",
 		func(c tele.Context) (nextState string, err error) {
-			city := c.Message().Text
-			if city == "" {
-				return ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)")
+			city, s, err, exit := validateCity(c)
+			if exit {
+				return s, err
 			}
-
-			if ok := matchingPatternCity.MatchString(city); !ok {
-				err := c.Send("Не могу распознать ответ. Попробуй еще раз!")
-				return ResumeState, err
-			}
-			city = cases.Title(language.Tag{}).String(city)
 
 			err = fsm.SetStateVar(c, surveySGVarCity, city)
 			return surveySGSetTimezone, err
@@ -146,42 +206,9 @@ func setupSurveyStateGroup(fsm *FSM) {
 	fsm.AddState(surveySGSetTimezone,
 		"(4/5) Сколько сейчас времени по твоим часам? Надо написать часы:минуты, например, 23:15. Это надо чтобы понять в каком часовом поясе ты находишься.",
 		func(c tele.Context) (nextState string, err error) {
-			userTimeTxt := c.Message().Text
-			if userTimeTxt == "" {
-				return ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)")
-			}
-
-			// VALIDATION
-			if ok := matchingPatternTime.MatchString(userTimeTxt); !ok {
-				return ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55")
-			}
-			userHoursMinutes := strings.Split(userTimeTxt, ":")
-			if len(userHoursMinutes) != 2 {
-				return ResumeState, c.Send("Не могу распознать ответ. Надо указать только часы и минуты формате ЧЧ:ММ, например, 20:55")
-			}
-
-			// str -> int
-			userHours, err := strconv.Atoi(userHoursMinutes[0])
-			if err != nil {
-				return ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55")
-			}
-			userMinutes, err := strconv.Atoi(userHoursMinutes[1])
-			if err != nil {
-				return ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55")
-			}
-
-			// post validation
-			if userHours > 23 {
-				return ResumeState, c.Send("Максимальный час - 23. Надо написать в формате ЧЧ:ММ, например, 20:55")
-			}
-			if userMinutes > 59 {
-				return ResumeState, c.Send("Максимальная минута - 59. Надо написать в формате ЧЧ:ММ, например, 20:55")
-			}
-
-			// calculations and saving data
-			utcTimezone, utcMinutesShift, err := calcTimezoneByTimeShift(userHours, userMinutes)
-			if err != nil {
-				return ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55")
+			utcTimezone, utcMinutesShift, s, err, exit := validateTimezone(c)
+			if exit {
+				return s, err
 			}
 
 			if err = fsm.SetStateVar(c, surveySGVarTimezoneRaw, utcMinutesShift); err != nil {
@@ -201,13 +228,9 @@ func setupSurveyStateGroup(fsm *FSM) {
 	fsm.AddState(surveySGSetExperience,
 		"(5/5) Сколько занимаешься вокалом?",
 		func(c tele.Context) (nextState string, err error) {
-			expVariant := c.Text()
-			if expVariant == "" {
-				return ResumeState, c.Send("Не могу распознать ответ. Выбери вариант из списка")
-			}
-			expVariant = strings.ToLower(expVariant)
-			if ok := slices.Contains(SurveySGSetExperiencePossibleVariants, expVariant); !ok {
-				return ResumeState, c.Send("Не могу распознать ответ. Выбери вариант из списка")
+			expVariant, s, err, exit := validateExperience(c)
+			if exit {
+				return s, err
 			}
 
 			// CLOSE SURVEY
@@ -260,4 +283,136 @@ func setupSurveyStateGroup(fsm *FSM) {
 
 			return ResetState, err
 		}, SurveySGSetExperienceMenu)
+}
+
+func validateExperience(c tele.Context) (expVariant string, state string, err error, exit bool) {
+	expVariant = c.Text()
+	if expVariant == "" {
+		return "", ResumeState, c.Send("Не могу распознать ответ. Выбери вариант из списка"), true
+	}
+	expVariant = strings.ToLower(expVariant)
+	if ok := slices.Contains(SurveySGSetExperiencePossibleVariants, expVariant); !ok {
+		return "", ResumeState, c.Send("Не могу распознать ответ. Выбери вариант из списка"), true
+	}
+	return expVariant, "", nil, false
+}
+
+func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, utcMinutesShift string, err error) {
+	userMinutes = userMinutes + userHours*60
+
+	utcTime := time.Now().UTC()
+	utcMinutes := utcTime.Minute() + utcTime.Hour()*60
+
+	deltaMinutes, err := time.ParseDuration(fmt.Sprintf("%dm", userMinutes-utcMinutes))
+	if err != nil {
+		err = fmt.Errorf("calcTimezoneByTimeshift(%d, %d): %w", userHours, userMinutes, err)
+		return
+	}
+	deltaMinutes = deltaMinutes.Round(30 * time.Minute)
+	utcMinutesShift = strconv.Itoa(int(deltaMinutes.Minutes())) // save output
+
+	// utcTimezone representation
+	var offsetSign rune
+	if deltaMinutes.Minutes() < 0 {
+		offsetSign = '-'
+	} else {
+		offsetSign = '+'
+	}
+
+	deltaHoursFmt := deltaMinutes / time.Hour
+	deltaMinutes -= deltaHoursFmt * time.Hour
+	deltaMinutesFmt := deltaMinutes / time.Minute
+	utcTimezone = fmt.Sprintf("UTC%c%02d:%02d", offsetSign, deltaHoursFmt.Abs(), deltaMinutesFmt.Abs())
+
+	return
+}
+
+func validateTimezone(c tele.Context) (utcTimezone string, utcMinutesShift string, state string, err error, exit bool) {
+	userTimeTxt := c.Message().Text
+	if userTimeTxt == "" {
+		return "", "", ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)"), true
+	}
+
+	// VALIDATION
+	if ok := matchingPatternTime.MatchString(userTimeTxt); !ok {
+		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
+	}
+	userHoursMinutes := strings.Split(userTimeTxt, ":")
+	if len(userHoursMinutes) != 2 {
+		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо указать только часы и минуты формате ЧЧ:ММ, например, 20:55"), true
+	}
+
+	// str -> int
+	userHours, err := strconv.Atoi(userHoursMinutes[0])
+	if err != nil {
+		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
+	}
+	userMinutes, err := strconv.Atoi(userHoursMinutes[1])
+	if err != nil {
+		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
+	}
+
+	// post validation
+	if userHours > 23 {
+		return "", "", ResumeState, c.Send("Максимальный час - 23. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
+	}
+	if userMinutes > 59 {
+		return "", "", ResumeState, c.Send("Максимальная минута - 59. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
+	}
+
+	// calculations and saving data
+	utcTimezone, utcMinutesShift, err = calcTimezoneByTimeShift(userHours, userMinutes)
+	if err != nil {
+		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
+	}
+	return utcTimezone, utcMinutesShift, "", nil, false
+}
+
+func validateCity(c tele.Context) (city string, state string, err error, exit bool) {
+	city = c.Message().Text
+	if city == "" {
+		return "", ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)"), true
+	}
+
+	if ok := matchingPatternCity.MatchString(city); !ok {
+		err := c.Send("Не могу распознать ответ. Попробуй еще раз!")
+		return "", ResumeState, err, true
+	}
+	city = cases.Title(language.Tag{}).String(city)
+	return city, "", nil, false
+}
+
+func validateAge(c tele.Context) (ageText string, state string, err error, exit bool) {
+	ageText = c.Message().Text
+	if ageText == "" {
+		return "", ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)"), true
+	}
+
+	// VALIDATION
+	age, err := strconv.Atoi(ageText)
+	if err != nil {
+		return "", ResumeState, c.Send("Возраст должен быть числом больше нуля, попробуй еще раз =)"), true
+	}
+	if age <= 0 {
+		return "", ResumeState, c.Send("Возраст должен быть числом больше нуля, попробуй еще раз =)"), true
+	}
+	if age > 100 {
+		return "", ResumeState, c.Send("Да ты совсем взрослый! Давай по-чесноку, сколько лет?"), true
+	}
+	return ageText, "", nil, false
+}
+
+func validateName(c tele.Context) (name string, state string, err error, exit bool) {
+	// TODO: Refactor this as FSM.state.messageChan == text, img, audio...
+	name = c.Message().Text
+	if name == "" {
+		return "", ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)"), true
+	}
+
+	// VALIDATION
+	if ok := matchingPatternName.MatchString(name); !ok {
+		return "", ResumeState, c.Send("Имя должно включать только русские или английские буквы и быть 2 - 50 символов"), true
+	}
+	name = cases.Title(language.Tag{}).String(name)
+	return name, "", nil, false
 }
