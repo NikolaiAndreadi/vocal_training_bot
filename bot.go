@@ -137,7 +137,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				return "Отмена"
 			},
 			func(c tele.Context) error {
-				err := fsm.TriggerState(c, ResumeState)
+				err := fsm.ResetState(c)
 				if err != nil {
 					fmt.Println(err)
 				}
