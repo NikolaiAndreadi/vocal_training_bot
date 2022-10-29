@@ -143,36 +143,23 @@ func EditInlineMenu(c tele.Context, fsm *FSM, menu *tele.ReplyMarkup, btnTemplat
 	if err != nil {
 		return fmt.Errorf("EditInlineMenu: can't get vars: %w", err)
 	}
-	mid, ok := vars["messageID"]
+	menuID, ok := vars["messageID"]
 	if !ok {
 		return fmt.Errorf("EditInlineMenu: can't get messageID: %w", err)
 	}
-	mtxt, ok := vars["inlineMenuText"]
+	menuTxt, ok := vars["inlineMenuText"]
 	if !ok {
 		return fmt.Errorf("EditInlineMenu: can't get inlineMenuText: %w", err)
 	}
 
-	for i, row := range menu.InlineKeyboard {
-		for j, btn := range row {
-			f, ok := btnTemplates.TextSetters[btn.Unique]
-			if !ok {
-				continue
-			}
-			val, err := f(c)
-			if err != nil {
-				fmt.Println(fmt.Errorf("can't change value for button %s, %w", menu.InlineKeyboard[i][j].Text, err))
-				continue
-			}
-			menu.InlineKeyboard[i][j].Text = val
-		}
-	}
+	menu = FillInlineMenu(c, menu, btnTemplates)
 
 	m := tele.StoredMessage{
-		MessageID: mid,
+		MessageID: menuID,
 		ChatID:    c.Chat().ID,
 	}
 
-	_, err = c.Bot().Edit(m, mtxt, menu)
+	_, err = c.Bot().Edit(m, menuTxt, menu)
 
 	return err
 }
