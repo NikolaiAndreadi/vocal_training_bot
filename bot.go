@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	tele "gopkg.in/telebot.v3"
@@ -43,31 +44,34 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 	AccountSettingsButtons = []*InlineMenuButton{
 		{
 			"ChangeName",
-			func(c tele.Context) (s string) {
-				userID := c.Sender().ID
-				err := db.QueryRow(context.Background(), "SELECT username FROM users WHERE user_id = $1", userID).Scan(&s)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return "Имя: " + s
+			func(c tele.Context) (s string, err error) {
+				err = db.QueryRow(context.Background(),
+					"SELECT username FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
+				return "Имя: " + s, err
 			},
 			func(c tele.Context) error {
 				err := fsm.TriggerState(c, SettingsSGSetName)
 				if err != nil {
 					fmt.Println(err)
 				}
+				err = fsm.SetStateVar(c, "messageID", strconv.Itoa(c.Message().ID))
+				if err != nil {
+					fmt.Println(err)
+				}
+				err = fsm.SetStateVar(c, "inlineMenuText", c.Message().Text)
+				if err != nil {
+					fmt.Println(err)
+				}
+
 				return c.Respond()
 			},
 		},
 		{
 			"ChangeAge",
-			func(c tele.Context) (s string) {
-				userID := c.Sender().ID
-				err := db.QueryRow(context.Background(), "SELECT text(age) FROM users WHERE user_id = $1", userID).Scan(&s)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return "Возраст: " + s
+			func(c tele.Context) (s string, err error) {
+				err = db.QueryRow(context.Background(),
+					"SELECT text(age) FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
+				return "Возраст: " + s, err
 			},
 			func(c tele.Context) error {
 				err := fsm.TriggerState(c, SettingsSGSetAge)
@@ -79,13 +83,10 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 		},
 		{
 			"ChangeCity",
-			func(c tele.Context) (s string) {
-				userID := c.Sender().ID
-				err := db.QueryRow(context.Background(), "SELECT city FROM users WHERE user_id = $1", userID).Scan(&s)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return "Город: " + s
+			func(c tele.Context) (s string, err error) {
+				err = db.QueryRow(context.Background(),
+					"SELECT city FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
+				return "Город: " + s, err
 			},
 			func(c tele.Context) error {
 				err := fsm.TriggerState(c, SettingsSGSetCity)
@@ -97,13 +98,10 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 		},
 		{
 			"ChangeTimezone",
-			func(c tele.Context) (s string) {
-				userID := c.Sender().ID
-				err := db.QueryRow(context.Background(), "SELECT timezone_txt FROM users WHERE user_id = $1", userID).Scan(&s)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return "Часовой пояс: " + s
+			func(c tele.Context) (s string, err error) {
+				err = db.QueryRow(context.Background(),
+					"SELECT timezone_txt FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
+				return "Часовой пояс: " + s, err
 			},
 			func(c tele.Context) error {
 				err := fsm.TriggerState(c, SettingsSGSetTimezone)
@@ -115,13 +113,10 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 		},
 		{
 			"ChangeExperience",
-			func(c tele.Context) (s string) {
-				userID := c.Sender().ID
-				err := db.QueryRow(context.Background(), "SELECT experience FROM users WHERE user_id = $1", userID).Scan(&s)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return "Опыт вокала: " + s
+			func(c tele.Context) (s string, err error) {
+				err = db.QueryRow(context.Background(),
+					"SELECT experience FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
+				return "Опыт вокала: " + s, err
 			},
 			func(c tele.Context) error {
 				err := fsm.TriggerState(c, SettingsSGSetExperience)
@@ -133,8 +128,8 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 		},
 		{
 			"Cancel",
-			func(c tele.Context) (s string) {
-				return "Отмена"
+			func(c tele.Context) (string, error) {
+				return "Отмена", nil
 			},
 			func(c tele.Context) error {
 				err := fsm.ResetState(c)

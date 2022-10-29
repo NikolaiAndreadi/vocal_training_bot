@@ -40,7 +40,7 @@ func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int, onc
 
 // INLINE BUTTON HELPERS
 
-type InlineMenuTextSetter func(c tele.Context) string
+type InlineMenuTextSetter func(c tele.Context) (string, error)
 
 type InlineMenuButton struct {
 	Unique         string
@@ -88,7 +88,7 @@ func FillInlineMenu(c tele.Context, menu *tele.ReplyMarkup, btnTemplates []*Inli
 
 	for _, btn := range btnTemplates {
 		switch f := btn.TextOnCreation.(type) {
-		case func(c tele.Context) string: // without reflect of InlineMenuTextSetter
+		case func(c tele.Context) (string, error): // without reflect of InlineMenuTextSetter
 			nameAssigners[btn.Unique] = f
 		default:
 			fmt.Printf("FillInlineMenu[%d]: unknown type %T of button %s\n", c.Sender().ID, f, btn.Unique)
@@ -101,14 +101,69 @@ func FillInlineMenu(c tele.Context, menu *tele.ReplyMarkup, btnTemplates []*Inli
 			if !ok {
 				continue
 			}
-			menu.InlineKeyboard[i][j].Text = f(c)
+			val, err := f(c)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't change value for button %s, %w", menu.InlineKeyboard[i][j].Text, err))
+				continue
+			}
+			menu.InlineKeyboard[i][j].Text = val
 		}
 	}
 	return menu
 }
 
+func EditInlineMenu(c tele.Context, fsm *FSM, menu *tele.ReplyMarkup, btnTemplates []*InlineMenuButton) error {
+	nameAssigners := make(map[string]InlineMenuTextSetter)
+
+	for _, btn := range btnTemplates {
+		switch f := btn.TextOnCreation.(type) {
+		case func(c tele.Context) (string, error): // without reflect of InlineMenuTextSetter
+			nameAssigners[btn.Unique] = f
+		default:
+			fmt.Printf("EditInlineMenu[%d]: unknown type %T of button %s\n", c.Sender().ID, f, btn.Unique)
+		}
+	}
+
+	vars, err := fsm.GetStateVars(c)
+	if err != nil {
+		return fmt.Errorf("EditInlineMenu: can't get vars: %w", err)
+	}
+	mid, ok := vars["messageID"]
+	if !ok {
+		return fmt.Errorf("EditInlineMenu: can't get messageID: %w", err)
+	}
+	mtxt, ok := vars["inlineMenuText"]
+	if !ok {
+		return fmt.Errorf("EditInlineMenu: can't get inlineMenuText: %w", err)
+	}
+
+	for i, row := range menu.InlineKeyboard {
+		for j, btn := range row {
+			f, ok := nameAssigners[btn.Unique]
+			if !ok {
+				continue
+			}
+			val, err := f(c)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't change value for button %s, %w", menu.InlineKeyboard[i][j].Text, err))
+				continue
+			}
+			menu.InlineKeyboard[i][j].Text = val
+		}
+	}
+
+	m := tele.StoredMessage{
+		MessageID: mid,
+		ChatID:    c.Chat().ID,
+	}
+
+	_, err = c.Bot().Edit(m, mtxt, menu)
+
+	return err
+}
+
 /*
-InlineButtonTextUpdater Example:
+InlineButtonTextInstantUpdater Example:
 
 	bot.Handle(&btn, func(c tele.Context) error {
 		if btn.Text == "+" {
@@ -122,7 +177,7 @@ InlineButtonTextUpdater Example:
 		return c.Edit(c.Callback().Message.Text, menu)
 	})
 */
-func InlineButtonTextUpdater(c tele.Context, newText string) *tele.ReplyMarkup {
+func InlineButtonTextInstantUpdater(c tele.Context, newText string) *tele.ReplyMarkup {
 	cb := c.Callback()
 
 	thisBtn := "\f" + cb.Unique

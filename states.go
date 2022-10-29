@@ -70,6 +70,11 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetName, c.Sender().ID))
 			}
 
+			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
 			return ResetState, c.Send("Имя изменено")
 		})
 
