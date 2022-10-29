@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	tele "gopkg.in/telebot.v3"
@@ -49,22 +48,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 					"SELECT username FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
 				return "Имя: " + s, err
 			},
-			func(c tele.Context) error {
-				err := fsm.TriggerState(c, SettingsSGSetName)
-				if err != nil {
-					fmt.Println(err)
-				}
-				err = fsm.SetStateVar(c, "messageID", strconv.Itoa(c.Message().ID))
-				if err != nil {
-					fmt.Println(err)
-				}
-				err = fsm.SetStateVar(c, "inlineMenuText", c.Message().Text)
-				if err != nil {
-					fmt.Println(err)
-				}
-
-				return c.Respond()
-			},
+			SettingsSGSetName,
 		},
 		{
 			"ChangeAge",
@@ -73,13 +57,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 					"SELECT text(age) FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
 				return "Возраст: " + s, err
 			},
-			func(c tele.Context) error {
-				err := fsm.TriggerState(c, SettingsSGSetAge)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return c.Respond()
-			},
+			SettingsSGSetAge,
 		},
 		{
 			"ChangeCity",
@@ -88,13 +66,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 					"SELECT city FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
 				return "Город: " + s, err
 			},
-			func(c tele.Context) error {
-				err := fsm.TriggerState(c, SettingsSGSetCity)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return c.Respond()
-			},
+			SettingsSGSetCity,
 		},
 		{
 			"ChangeTimezone",
@@ -103,13 +75,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 					"SELECT timezone_txt FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
 				return "Часовой пояс: " + s, err
 			},
-			func(c tele.Context) error {
-				err := fsm.TriggerState(c, SettingsSGSetTimezone)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return c.Respond()
-			},
+			SettingsSGSetTimezone,
 		},
 		{
 			"ChangeExperience",
@@ -118,13 +84,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 					"SELECT experience FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
 				return "Опыт вокала: " + s, err
 			},
-			func(c tele.Context) error {
-				err := fsm.TriggerState(c, SettingsSGSetExperience)
-				if err != nil {
-					fmt.Println(err)
-				}
-				return c.Respond()
-			},
+			SettingsSGSetExperience,
 		},
 		{
 			"Cancel",
@@ -132,12 +92,10 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				return "Отмена", nil
 			},
 			func(c tele.Context) error {
-				err := fsm.ResetState(c)
-				if err != nil {
+				if err := fsm.ResetState(c); err != nil {
 					fmt.Println(err)
 				}
-				err = c.Send("OK", MainUserMenu)
-				if err != nil {
+				if err := c.Send("OK", MainUserMenu); err != nil {
 					fmt.Println(err)
 				}
 				return c.Respond()
@@ -145,7 +103,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 		},
 	}
 
-	AccountSettingsMenu = InlineMenuConstructor(bot, 1, AccountSettingsButtons)
+	AccountSettingsMenu = InlineMenuConstructor(bot, fsm, 1, AccountSettingsButtons)
 }
 
 func setupHandlers(bot *tele.Bot, fsm *FSM) {

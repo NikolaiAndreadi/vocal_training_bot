@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"strconv"
 
 	tele "gopkg.in/telebot.v3"
 )
@@ -45,10 +46,10 @@ type InlineMenuTextSetter func(c tele.Context) (string, error)
 type InlineMenuButton struct {
 	Unique         string
 	TextOnCreation interface{}
-	OnClick        tele.HandlerFunc
+	OnClick        interface{} // tele.HandlerFunc or string. String == state
 }
 
-func InlineMenuConstructor(b *tele.Bot, maxElementsInRow int, btnTemplates []*InlineMenuButton) *tele.ReplyMarkup {
+func InlineMenuConstructor(b *tele.Bot, fsm *FSM, maxElementsInRow int, btnTemplates []*InlineMenuButton) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 
 	itemCount := len(btnTemplates)
@@ -66,7 +67,26 @@ func InlineMenuConstructor(b *tele.Bot, maxElementsInRow int, btnTemplates []*In
 			constructedText = val
 		}
 		constructedButton := menu.Data(constructedText, button.Unique, "\f"+button.Unique)
-		b.Handle(&constructedButton, button.OnClick)
+		switch v := button.OnClick.(type) {
+		case string:
+			b.Handle(&constructedButton, func(c tele.Context) error {
+				err := fsm.TriggerState(c, v)
+				if err != nil {
+					fmt.Println(err)
+				}
+				err = fsm.SetStateVar(c, "messageID", strconv.Itoa(c.Message().ID))
+				if err != nil {
+					fmt.Println(err)
+				}
+				err = fsm.SetStateVar(c, "inlineMenuText", c.Message().Text)
+				if err != nil {
+					fmt.Println(err)
+				}
+				return c.Respond()
+			})
+		case func(c tele.Context) error: // tele.HandlerFunc without reflect
+			b.Handle(&constructedButton, v)
+		}
 
 		if i%maxElementsInRow == 0 {
 			if len(constructedRow) != 0 {
