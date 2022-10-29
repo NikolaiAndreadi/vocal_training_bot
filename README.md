@@ -125,4 +125,3 @@ SCRATCHPAD:
 
 TODO:
     after settings change - update value in menu
-    DATE BUG!!!

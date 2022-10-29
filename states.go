@@ -311,6 +311,16 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 	deltaMinutes = deltaMinutes.Round(30 * time.Minute)
 	utcMinutesShift = strconv.Itoa(int(deltaMinutes.Minutes())) // save output
 
+	// corner cases - on the day edge
+	// e.g. UTC 22:30 27 jan; UTC+3 01:30 28 jan; delta 180, not -1260
+	// e.g. UTC 01:00 27 jan; UTC-2 23:00 26 jan; delta -120, not 1320
+	if deltaMinutes < -720 {
+		deltaMinutes = 1440 + deltaMinutes
+	}
+	if deltaMinutes > 840 {
+		deltaMinutes = deltaMinutes - 1440
+	}
+
 	// utcTimezone representation
 	var offsetSign rune
 	if deltaMinutes.Minutes() < 0 {
