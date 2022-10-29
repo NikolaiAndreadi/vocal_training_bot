@@ -20,7 +20,7 @@ var (
 
 	// AccountSettingsMenu inline group
 	AccountSettingsMenu    *tele.ReplyMarkup
-	AccountSettingsButtons []*InlineMenuButton
+	AccountSettingsButtons InlineMenuButtonBlock
 )
 
 func InitBot(cfg Config) *tele.Bot {
@@ -40,7 +40,7 @@ func InitBot(cfg Config) *tele.Bot {
 }
 
 func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
-	AccountSettingsButtons = []*InlineMenuButton{
+	AccountSettingsButtons = NewInlineMenuButtonBlock([]*InlineMenuButton{
 		{
 			"ChangeName",
 			func(c tele.Context) (s string, err error) {
@@ -101,7 +101,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				return c.Respond()
 			},
 		},
-	}
+	})
 
 	AccountSettingsMenu = InlineMenuConstructor(bot, fsm, 1, AccountSettingsButtons)
 }

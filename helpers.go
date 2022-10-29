@@ -43,16 +43,33 @@ func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int, onc
 
 type InlineMenuTextSetter func(c tele.Context) (string, error)
 
+type InlineMenuButtonBlock struct {
+	Buttons     []*InlineMenuButton
+	TextSetters map[string]InlineMenuTextSetter
+}
+
+func NewInlineMenuButtonBlock(bb []*InlineMenuButton) (imbb InlineMenuButtonBlock) {
+	imbb.Buttons = bb
+	imbb.TextSetters = make(map[string]InlineMenuTextSetter, len(bb))
+	for _, btn := range bb {
+		switch f := btn.TextOnCreation.(type) {
+		case func(c tele.Context) (string, error): // without reflect of InlineMenuTextSetter
+			imbb.TextSetters[btn.Unique] = f
+		}
+	}
+	return
+}
+
 type InlineMenuButton struct {
 	Unique         string
 	TextOnCreation interface{}
 	OnClick        interface{} // tele.HandlerFunc or string. String == state
 }
 
-func InlineMenuConstructor(b *tele.Bot, fsm *FSM, maxElementsInRow int, btnTemplates []*InlineMenuButton) *tele.ReplyMarkup {
+func InlineMenuConstructor(b *tele.Bot, fsm *FSM, maxElementsInRow int, btnTemplates InlineMenuButtonBlock) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{}
 
-	itemCount := len(btnTemplates)
+	itemCount := len(btnTemplates.Buttons)
 	rowCount := 1
 	if itemCount > maxElementsInRow {
 		rowCount = int(math.Ceil(float64(itemCount) / float64(maxElementsInRow)))
@@ -60,7 +77,7 @@ func InlineMenuConstructor(b *tele.Bot, fsm *FSM, maxElementsInRow int, btnTempl
 
 	var constructedRow []tele.Btn
 	rows := make([]tele.Row, rowCount)
-	for i, button := range btnTemplates {
+	for i, button := range btnTemplates.Buttons {
 		var constructedText string
 		switch val := button.TextOnCreation.(type) {
 		case string:
@@ -103,21 +120,10 @@ func InlineMenuConstructor(b *tele.Bot, fsm *FSM, maxElementsInRow int, btnTempl
 	return menu
 }
 
-func FillInlineMenu(c tele.Context, menu *tele.ReplyMarkup, btnTemplates []*InlineMenuButton) *tele.ReplyMarkup {
-	nameAssigners := make(map[string]InlineMenuTextSetter)
-
-	for _, btn := range btnTemplates {
-		switch f := btn.TextOnCreation.(type) {
-		case func(c tele.Context) (string, error): // without reflect of InlineMenuTextSetter
-			nameAssigners[btn.Unique] = f
-		default:
-			fmt.Printf("FillInlineMenu[%d]: unknown type %T of button %s\n", c.Sender().ID, f, btn.Unique)
-		}
-	}
-
+func FillInlineMenu(c tele.Context, menu *tele.ReplyMarkup, btnTemplates InlineMenuButtonBlock) *tele.ReplyMarkup {
 	for i, row := range menu.InlineKeyboard {
 		for j, btn := range row {
-			f, ok := nameAssigners[btn.Unique]
+			f, ok := btnTemplates.TextSetters[btn.Unique]
 			if !ok {
 				continue
 			}
@@ -132,18 +138,7 @@ func FillInlineMenu(c tele.Context, menu *tele.ReplyMarkup, btnTemplates []*Inli
 	return menu
 }
 
-func EditInlineMenu(c tele.Context, fsm *FSM, menu *tele.ReplyMarkup, btnTemplates []*InlineMenuButton) error {
-	nameAssigners := make(map[string]InlineMenuTextSetter)
-
-	for _, btn := range btnTemplates {
-		switch f := btn.TextOnCreation.(type) {
-		case func(c tele.Context) (string, error): // without reflect of InlineMenuTextSetter
-			nameAssigners[btn.Unique] = f
-		default:
-			fmt.Printf("EditInlineMenu[%d]: unknown type %T of button %s\n", c.Sender().ID, f, btn.Unique)
-		}
-	}
-
+func EditInlineMenu(c tele.Context, fsm *FSM, menu *tele.ReplyMarkup, btnTemplates InlineMenuButtonBlock) error {
 	vars, err := fsm.GetStateVars(c)
 	if err != nil {
 		return fmt.Errorf("EditInlineMenu: can't get vars: %w", err)
@@ -159,7 +154,7 @@ func EditInlineMenu(c tele.Context, fsm *FSM, menu *tele.ReplyMarkup, btnTemplat
 
 	for i, row := range menu.InlineKeyboard {
 		for j, btn := range row {
-			f, ok := nameAssigners[btn.Unique]
+			f, ok := btnTemplates.TextSetters[btn.Unique]
 			if !ok {
 				continue
 			}
