@@ -96,6 +96,11 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetAge, c.Sender().ID))
 			}
 
+			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
 			return ResetState, c.Send("Возраст изменен")
 		})
 
@@ -115,6 +120,11 @@ func setupSettingsStateGroup(fsm *FSM) {
 
 			if err != nil {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetCity, c.Sender().ID))
+			}
+
+			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
 			}
 
 			return ResetState, c.Send("Город изменен")
@@ -139,6 +149,11 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetTimezone, c.Sender().ID))
 			}
 
+			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
 			return ResetState, c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
 		})
 
@@ -158,6 +173,11 @@ func setupSettingsStateGroup(fsm *FSM) {
 
 			if err != nil {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetExperience, c.Sender().ID))
+			}
+
+			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
 			}
 
 			return ResetState, c.Send("Опыт обновлен", &tele.ReplyMarkup{RemoveKeyboard: true}, MainUserMenu)
