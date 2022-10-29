@@ -328,14 +328,7 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 	utcTime := time.Now().UTC()
 	utcMinutes := utcTime.Minute() + utcTime.Hour()*60
 
-	deltaMinutes, err := time.ParseDuration(fmt.Sprintf("%dm", userMinutes-utcMinutes))
-	if err != nil {
-		err = fmt.Errorf("calcTimezoneByTimeshift(%d, %d): %w", userHours, userMinutes, err)
-		return
-	}
-	deltaMinutes = deltaMinutes.Round(30 * time.Minute)
-	utcMinutesShift = strconv.Itoa(int(deltaMinutes.Minutes())) // save output
-
+	deltaMinutes := userMinutes - utcMinutes
 	// corner cases - on the day edge
 	// e.g. UTC 22:30 27 jan; UTC+3 01:30 28 jan; delta 180, not -1260
 	// e.g. UTC 01:00 27 jan; UTC-2 23:00 26 jan; delta -120, not 1320
@@ -346,17 +339,25 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 		deltaMinutes = deltaMinutes - 1440
 	}
 
+	deltaMinutesDur, err := time.ParseDuration(fmt.Sprintf("%dm", deltaMinutes))
+	if err != nil {
+		err = fmt.Errorf("calcTimezoneByTimeshift(%d, %d): %w", userHours, userMinutes, err)
+		return
+	}
+	deltaMinutesDur = deltaMinutesDur.Round(30 * time.Minute)
+	utcMinutesShift = strconv.Itoa(int(deltaMinutesDur.Minutes())) // save output
+
 	// utcTimezone representation
 	var offsetSign rune
-	if deltaMinutes.Minutes() < 0 {
+	if deltaMinutesDur.Minutes() < 0 {
 		offsetSign = '-'
 	} else {
 		offsetSign = '+'
 	}
 
-	deltaHoursFmt := deltaMinutes / time.Hour
-	deltaMinutes -= deltaHoursFmt * time.Hour
-	deltaMinutesFmt := deltaMinutes / time.Minute
+	deltaHoursFmt := deltaMinutesDur / time.Hour
+	deltaMinutesDur -= deltaHoursFmt * time.Hour
+	deltaMinutesFmt := deltaMinutesDur / time.Minute
 	utcTimezone = fmt.Sprintf("UTC%c%02d:%02d", offsetSign, deltaHoursFmt.Abs(), deltaMinutesFmt.Abs())
 
 	return
