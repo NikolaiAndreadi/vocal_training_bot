@@ -58,19 +58,26 @@ func createSchema(conn *pgxpool.Pool) {
 		PRIMARY KEY (user_id)
 	);
 
-	DROP TABLE IF EXISTS warmup_global_notifications CASCADE;
-	CREATE TABLE IF NOT EXISTS warmup_global_notifications (
-	    user_id	int8	REFERENCES users(user_id),
-	    online	bool	NOT NULL
-	);
-	CREATE INDEX IF NOT EXISTS idx_warmup_global_notifications__user_id ON warmup_global_notifications(user_id);
-
-	DROP TABLE IF EXISTS warmup_notification_timings CASCADE;
-	CREATE TABLE IF NOT EXISTS warmup_notification_timings (
+	CREATE TABLE IF NOT EXISTS warmup_notifications (
 		user_id		int8		REFERENCES users(user_id),
-		online		bool		NOT NULL,
-		timing_day	char(3)		CHECK (timing_day IN ('MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN')),
-		timing_dt	timestamp	-- NO timezone, - calculate by using users.timezone_raw
+		
+		global_on   bool        NOT NULL DEFAULT false,
+		
+		mon_on      bool        NOT NULL DEFAULT true,
+		tue_on      bool        NOT NULL DEFAULT true,
+		wed_on      bool        NOT NULL DEFAULT true,
+		thu_on      bool        NOT NULL DEFAULT true,
+		fri_on      bool        NOT NULL DEFAULT true,
+		sat_on      bool        NOT NULL DEFAULT true,
+		sun_on      bool        NOT NULL DEFAULT true,
+		
+		mon_time	time(0) NOT NULL DEFAULT '18:00:00',
+		tue_time	time(0) NOT NULL DEFAULT '18:00:00',
+		wed_time	time(0) NOT NULL DEFAULT '18:00:00',
+		thu_time	time(0) NOT NULL DEFAULT '18:00:00',
+		fri_time	time(0) NOT NULL DEFAULT '18:00:00',
+		sat_time	time(0) NOT NULL DEFAULT '18:00:00',
+		sun_time	time(0) NOT NULL DEFAULT '18:00:00'
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__user_id ON warmup_notification_timings(user_id);
 

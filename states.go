@@ -70,7 +70,7 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetName, c.Sender().ID))
 			}
 
-			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			err = AccountSettingsMenu.Update(c, fsm)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
 			}
@@ -96,7 +96,7 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetAge, c.Sender().ID))
 			}
 
-			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			err = AccountSettingsMenu.Update(c, fsm)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
 			}
@@ -122,7 +122,7 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetCity, c.Sender().ID))
 			}
 
-			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			err = AccountSettingsMenu.Update(c, fsm)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
 			}
@@ -149,7 +149,7 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetTimezone, c.Sender().ID))
 			}
 
-			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			err = AccountSettingsMenu.Update(c, fsm)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
 			}
@@ -175,7 +175,7 @@ func setupSettingsStateGroup(fsm *FSM) {
 				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", SettingsSGSetExperience, c.Sender().ID))
 			}
 
-			err = EditInlineMenu(c, fsm, AccountSettingsMenu, AccountSettingsButtons)
+			err = AccountSettingsMenu.Update(c, fsm)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
 			}

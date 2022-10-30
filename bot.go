@@ -18,9 +18,8 @@ var (
 	}
 	MainUserMenu = ReplyMenuConstructor(MainUserMenuOptions, 2, false)
 
-	// AccountSettingsMenu inline group
-	AccountSettingsMenu    *tele.ReplyMarkup
-	AccountSettingsButtons InlineMenuButtonBlock
+	AccountSettingsMenu *InlineMenu
+	//WarmupNotificationsMenu *InlineMenu
 )
 
 func InitBot(cfg Config) *tele.Bot {
@@ -40,57 +39,84 @@ func InitBot(cfg Config) *tele.Bot {
 }
 
 func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
-	AccountSettingsButtons = NewInlineMenuButtonBlock([]*InlineMenuButton{
+	AccountSettingsMenu = NewInlineMenu("Текущие настройки: нажми на пункт, чтобы изменить",
+		func(c tele.Context) (map[string]string, error) {
+			var name, age, city, tz, xp string
+			err := db.QueryRow(context.Background(),
+				"SELECT username, text(age), city, timezone_txt, experience FROM users WHERE user_id = $1",
+				c.Sender().ID).Scan(&name, &age, &city, &tz, &xp)
+			if err != nil {
+				return nil, err
+			}
+			data := map[string]string{
+				"name":       name,
+				"age":        age,
+				"city":       city,
+				"timezone":   tz,
+				"experience": xp,
+			}
+			return data, nil
+		})
+
+	AccountSettingsMenu.AddButtons([]*InlineButtonTemplate{
 		{
 			"ChangeName",
-			func(c tele.Context) (s string, err error) {
-				err = db.QueryRow(context.Background(),
-					"SELECT username FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
-				return "Имя: " + s, err
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["name"]
+				if !ok {
+					return "Имя неизвестно", fmt.Errorf("can't fetch name")
+				}
+				return "Имя: " + s, nil
 			},
 			SettingsSGSetName,
 		},
 		{
 			"ChangeAge",
-			func(c tele.Context) (s string, err error) {
-				err = db.QueryRow(context.Background(),
-					"SELECT text(age) FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
-				return "Возраст: " + s, err
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["age"]
+				if !ok {
+					return "Возраст неизвестен", fmt.Errorf("can't fetch age")
+				}
+				return "Возраст: " + s, nil
 			},
 			SettingsSGSetAge,
 		},
 		{
 			"ChangeCity",
-			func(c tele.Context) (s string, err error) {
-				err = db.QueryRow(context.Background(),
-					"SELECT city FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
-				return "Город: " + s, err
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["city"]
+				if !ok {
+					return "Город неизвестен", fmt.Errorf("can't fetch city")
+				}
+				return "Город: " + s, nil
 			},
 			SettingsSGSetCity,
 		},
 		{
 			"ChangeTimezone",
-			func(c tele.Context) (s string, err error) {
-				err = db.QueryRow(context.Background(),
-					"SELECT timezone_txt FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
-				return "Часовой пояс: " + s, err
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["timezone"]
+				if !ok {
+					return "Часовой пояс неизвестен", fmt.Errorf("can't fetch timezone")
+				}
+				return "Часовой пояс: " + s, nil
 			},
 			SettingsSGSetTimezone,
 		},
 		{
 			"ChangeExperience",
-			func(c tele.Context) (s string, err error) {
-				err = db.QueryRow(context.Background(),
-					"SELECT experience FROM users WHERE user_id = $1", c.Sender().ID).Scan(&s)
-				return "Опыт вокала: " + s, err
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["experience"]
+				if !ok {
+					return "Опыт вокала неизвестен", fmt.Errorf("can't fetch experience")
+				}
+				return "Опыт вокала: " + s, nil
 			},
 			SettingsSGSetExperience,
 		},
 		{
 			"Cancel",
-			func(c tele.Context) (string, error) {
-				return "Отмена", nil
-			},
+			"Отмена",
 			func(c tele.Context) error {
 				if err := fsm.ResetState(c); err != nil {
 					fmt.Println(err)
@@ -102,8 +128,38 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 			},
 		},
 	})
+	AccountSettingsMenu.Construct(bot, fsm, 1)
 
-	AccountSettingsMenu = InlineMenuConstructor(bot, fsm, 1, AccountSettingsButtons)
+	/*
+		AccountSettingsMenu = InlineMenuConstructor(bot, fsm, 1, AccountSettingsButtons)
+
+		WarmupNotificationsButtons = NewInlineMenuButtonBlock([]*InlineMenuButton{
+			{
+				"NotificationSwitchMon",
+				func(c tele.Context) (s string, err error) {
+					var v bool
+					err = db.QueryRow(context.Background(),
+						"SELECT mon_on FROM warmup_notifications WHERE user_id = $1", c.Sender().ID).Scan(&v)
+					s = "Понедельник: "
+					if v == true {
+						return s + "🔔", err
+					}
+					return s + "🔕", err
+				},
+				NoState,
+			},
+			{
+				"NotificationTimeMon",
+				func(c tele.Context) (s string, err error) {
+					err = db.QueryRow(context.Background(),
+						"SELECT to_char(mon_time,'HH24:MI') FROM warmup_notifications WHERE user_id = $1", c.Sender().ID).Scan(&s)
+					return s, err
+				},
+				NoState,
+			},
+		})
+		WarmupNotificationsMenu = InlineMenuConstructor(bot, fsm, 2, WarmupNotificationsButtons)
+	*/
 }
 
 func setupHandlers(bot *tele.Bot, fsm *FSM) {
@@ -144,11 +200,14 @@ func setupHandlers(bot *tele.Bot, fsm *FSM) {
 		switch c.Text() {
 		case "Распевки":
 		case "Напоминания":
+			//return c.Send("Напоминания:",
+			//	FillInlineMenu(c, WarmupNotificationsMenu, WarmupNotificationsButtons))
 		case "Записаться на урок":
 		case "Обо мне":
 		case "Настройки аккаунта":
-			return c.Send("Текущие настройки: нажми на пункт, чтобы изменить",
-				FillInlineMenu(c, AccountSettingsMenu, AccountSettingsButtons))
+			return AccountSettingsMenu.Serve(c)
+			//return c.Send("Текущие настройки: нажми на пункт, чтобы изменить",
+			//	FillInlineMenu(c, AccountSettingsMenu, AccountSettingsButtons))
 		}
 		return nil
 	})
