@@ -41,6 +41,8 @@ func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int, onc
 
 // INLINE BUTTON HELPERS
 
+const RowSplitterButton = "__SPLITTER__"
+
 // InlineButtonTemplate is an abstraction with static or dynamic content
 // unique is a button name, should be unique along whole project. Used as a handler triggers
 // textOnCreation is a (string) - static content, or (InlineMenuTextSetter) - dynamic content
@@ -106,13 +108,15 @@ func (im *InlineMenu) Construct(b *tele.Bot, fsm *FSM, maxElementsInRow int) {
 		bakedButton := im.manageButton(b, fsm, button)
 
 		// button placement
-		if i%maxElementsInRow == 0 {
+		if (i%maxElementsInRow == 0) || button.unique == RowSplitterButton {
 			if len(row) != 0 {
 				rows = append(rows, im.menuCarcass.Row(row...))
 			}
 			row = make([]tele.Btn, 0)
 		}
-		row = append(row, bakedButton)
+		if button.unique != RowSplitterButton {
+			row = append(row, bakedButton)
+		}
 	}
 	// if there are some unprocessed buttons - place them into new row
 	if len(row) != 0 {
@@ -162,7 +166,6 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 			content, err := f(c, dynamicContentMap)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't change value for button %s, %w", im.menuCarcass.InlineKeyboard[i][j].Text, err))
-				continue
 			}
 			im.menuCarcass.InlineKeyboard[i][j].Text = content
 		}
@@ -173,7 +176,7 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 func (im *InlineMenu) manageButton(b *tele.Bot, fsm *FSM, button *InlineButtonTemplate) tele.Btn {
 	staticText, ok := button.textOnCreation.(string) // don't panic on failed type assertion (dynamic content is processed later)
 	if !ok {
-		staticText = "." // empty string is not allowed
+		staticText = "(empty)" // empty string is not allowed
 	}
 	bakedButton := im.menuCarcass.Data(staticText, button.unique, "\f"+button.unique)
 
