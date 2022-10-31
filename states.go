@@ -19,6 +19,7 @@ func SetupStates(db *pgxpool.Pool) *FSM {
 	fsm := NewFSM(db)
 	setupSurveyStateGroup(fsm)
 	setupSettingsStateGroup(fsm)
+	setupWarmupNotificationStateGroup(fsm)
 	return fsm
 }
 
@@ -40,12 +41,22 @@ const (
 	SettingsSGSetCity       = "SettingsStateGroup_SetCity"
 	SettingsSGSetTimezone   = "SettingsStateGroup_SetTimezone"
 	SettingsSGSetExperience = "SettingsStateGroup_SetExperience"
+
+	NotificationSGSetTimeMon = "NotificationStateGroup_SetTimeMon"
+	NotificationSGSetTimeTue = "NotificationStateGroup_SetTimeTue"
+	NotificationSGSetTimeWed = "NotificationStateGroup_SetTimeWed"
+	NotificationSGSetTimeThu = "NotificationStateGroup_SetTimeThu"
+	NotificationSGSetTimeFri = "NotificationStateGroup_SetTimeFri"
+	NotificationSGSetTimeSat = "NotificationStateGroup_SetTimeSat"
+	NotificationSGSetTimeSun = "NotificationStateGroup_SetTimeSun"
 )
 
 var (
 	matchingPatternName = regexp.MustCompile("[ЁёА-яA-Za-z ]{2,50}")
 	matchingPatternCity = regexp.MustCompile("[ЁёА-яA-Za-z ]{2,50}")
 	matchingPatternTime = regexp.MustCompile("[0-9]?[0-9]:[0-9][0-9]")
+
+	WarmupNotificationsTimeColumns = []string{"mon_time", "tue_time", "wed_time", "thu_time", "fri_time", "sat_time", "sun_time"}
 
 	SurveySGSetExperiencePossibleVariants = []string{"без опыта", "менее 1 года", "1-2 года", "2-3 года", "3-5 лет", "более 5 лет"}
 	SurveySGSetExperienceMenu             = ReplyMenuConstructor(SurveySGSetExperiencePossibleVariants, 2, true)
@@ -310,6 +321,185 @@ func setupSurveyStateGroup(fsm *FSM) {
 		}, SurveySGSetExperienceMenu)
 }
 
+func setupWarmupNotificationStateGroup(fsm *FSM) {
+	fsm.AddState(NotificationSGSetTimeMon,
+		"Введи время срабатывания напоминания в понедельник в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		func(c tele.Context) (nextState string, err error) {
+			_, _, errStr := validateTime(c)
+			if errStr != "" {
+				return ResumeState, c.Send(errStr)
+			}
+
+			_, err = DB.Exec(context.Background(),
+				`UPDATE warmup_notifications
+					 SET mon_time = $1
+					 WHERE user_id = $2`, c.Message().Text, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", NotificationSGSetTimeMon, c.Sender().ID))
+			}
+
+			err = WarmupNotificationsMenu.Update(c, fsm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
+			return ResetState, c.Send("Время обновлено!")
+		},
+	)
+	fsm.AddState(NotificationSGSetTimeTue,
+		"Введи время срабатывания напоминания во вторник в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		func(c tele.Context) (nextState string, err error) {
+			_, _, errStr := validateTime(c)
+			if errStr != "" {
+				return ResumeState, c.Send(errStr)
+			}
+
+			_, err = DB.Exec(context.Background(),
+				`UPDATE warmup_notifications
+					 SET tue_time = $1
+					 WHERE user_id = $2`, c.Message().Text, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", NotificationSGSetTimeTue, c.Sender().ID))
+			}
+
+			err = WarmupNotificationsMenu.Update(c, fsm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
+			return ResetState, c.Send("Время обновлено!")
+		},
+	)
+	fsm.AddState(NotificationSGSetTimeWed,
+		"Введи время срабатывания напоминания в среду в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		func(c tele.Context) (nextState string, err error) {
+			_, _, errStr := validateTime(c)
+			if errStr != "" {
+				return ResumeState, c.Send(errStr)
+			}
+
+			_, err = DB.Exec(context.Background(),
+				`UPDATE warmup_notifications
+					 SET wed_time = $1
+					 WHERE user_id = $2`, c.Message().Text, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", NotificationSGSetTimeWed, c.Sender().ID))
+			}
+
+			err = WarmupNotificationsMenu.Update(c, fsm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
+			return ResetState, c.Send("Время обновлено!")
+		},
+	)
+	fsm.AddState(NotificationSGSetTimeThu,
+		"Введи время срабатывания напоминания в четверг в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		func(c tele.Context) (nextState string, err error) {
+			_, _, errStr := validateTime(c)
+			if errStr != "" {
+				return ResumeState, c.Send(errStr)
+			}
+
+			_, err = DB.Exec(context.Background(),
+				`UPDATE warmup_notifications
+					 SET thu_time = $1
+					 WHERE user_id = $2`, c.Message().Text, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", NotificationSGSetTimeThu, c.Sender().ID))
+			}
+
+			err = WarmupNotificationsMenu.Update(c, fsm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
+			return ResetState, c.Send("Время обновлено!")
+		},
+	)
+	fsm.AddState(NotificationSGSetTimeFri,
+		"Введи время срабатывания напоминания в пятницу в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		func(c tele.Context) (nextState string, err error) {
+			_, _, errStr := validateTime(c)
+			if errStr != "" {
+				return ResumeState, c.Send(errStr)
+			}
+
+			_, err = DB.Exec(context.Background(),
+				`UPDATE warmup_notifications
+					 SET fri_time = $1
+					 WHERE user_id = $2`, c.Message().Text, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", NotificationSGSetTimeFri, c.Sender().ID))
+			}
+
+			err = WarmupNotificationsMenu.Update(c, fsm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
+			return ResetState, c.Send("Время обновлено!")
+		},
+	)
+	fsm.AddState(NotificationSGSetTimeSat,
+		"Введи время срабатывания напоминания в субботу в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		func(c tele.Context) (nextState string, err error) {
+			_, _, errStr := validateTime(c)
+			if errStr != "" {
+				return ResumeState, c.Send(errStr)
+			}
+
+			_, err = DB.Exec(context.Background(),
+				`UPDATE warmup_notifications
+					 SET sat_time = $1
+					 WHERE user_id = $2`, c.Message().Text, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", NotificationSGSetTimeSat, c.Sender().ID))
+			}
+
+			err = WarmupNotificationsMenu.Update(c, fsm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
+			return ResetState, c.Send("Время обновлено!")
+		},
+	)
+	fsm.AddState(NotificationSGSetTimeSun,
+		"Введи время срабатывания напоминания в воскресенье в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		func(c tele.Context) (nextState string, err error) {
+			_, _, errStr := validateTime(c)
+			if errStr != "" {
+				return ResumeState, c.Send(errStr)
+			}
+
+			_, err = DB.Exec(context.Background(),
+				`UPDATE warmup_notifications
+					 SET sun_time = $1
+					 WHERE user_id = $2`, c.Message().Text, c.Sender().ID)
+
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s[%d]: Can't exec insert into db", NotificationSGSetTimeSun, c.Sender().ID))
+			}
+
+			err = WarmupNotificationsMenu.Update(c, fsm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("can't EditInlineMenu %w", err))
+			}
+
+			return ResetState, c.Send("Время обновлено!")
+		},
+	)
+}
+
+// TODO: refactor auto-refactoring.
 func validateExperience(c tele.Context) (expVariant string, state string, err error, exit bool) {
 	expVariant = c.Text()
 	if expVariant == "" {
@@ -364,36 +554,9 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 }
 
 func validateTimezone(c tele.Context) (utcTimezone string, utcMinutesShift string, state string, err error, exit bool) {
-	userTimeTxt := c.Message().Text
-	if userTimeTxt == "" {
-		return "", "", ResumeState, c.Send("Не могу распознать ответ. Попробуй еще раз =)"), true
-	}
-
-	// VALIDATION
-	if ok := matchingPatternTime.MatchString(userTimeTxt); !ok {
-		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
-	}
-	userHoursMinutes := strings.Split(userTimeTxt, ":")
-	if len(userHoursMinutes) != 2 {
-		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо указать только часы и минуты формате ЧЧ:ММ, например, 20:55"), true
-	}
-
-	// str -> int
-	userHours, err := strconv.Atoi(userHoursMinutes[0])
-	if err != nil {
-		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
-	}
-	userMinutes, err := strconv.Atoi(userHoursMinutes[1])
-	if err != nil {
-		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
-	}
-
-	// post validation
-	if userHours > 23 {
-		return "", "", ResumeState, c.Send("Максимальный час - 23. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
-	}
-	if userMinutes > 59 {
-		return "", "", ResumeState, c.Send("Максимальная минута - 59. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
+	userHours, userMinutes, errStr := validateTime(c)
+	if errStr != "" {
+		return "", "", ResumeState, c.Send(errStr), true
 	}
 
 	// calculations and saving data
@@ -402,6 +565,49 @@ func validateTimezone(c tele.Context) (utcTimezone string, utcMinutesShift strin
 		return "", "", ResumeState, c.Send("Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"), true
 	}
 	return utcTimezone, utcMinutesShift, "", nil, false
+}
+
+func validateTime(c tele.Context) (userHours int, userMinutes int, errStr string) {
+	userTimeTxt := c.Message().Text
+	if userTimeTxt == "" {
+		errStr = "Не могу распознать ответ. Попробуй еще раз =)"
+		return
+	}
+
+	errStr = "Не могу распознать ответ. Надо написать в формате ЧЧ:ММ, например, 20:55"
+
+	// VALIDATION
+	if ok := matchingPatternTime.MatchString(userTimeTxt); !ok {
+
+		return
+	}
+	userHoursMinutes := strings.Split(userTimeTxt, ":")
+	if len(userHoursMinutes) != 2 {
+		return
+	}
+
+	// str -> int
+	userHours, err := strconv.Atoi(userHoursMinutes[0])
+	if err != nil {
+		return
+	}
+	userMinutes, err = strconv.Atoi(userHoursMinutes[1])
+	if err != nil {
+		return
+	}
+
+	// post validation
+	if userHours > 23 {
+		errStr = "Максимальный час - 23. Надо написать в формате ЧЧ:ММ, например, 20:55"
+		return
+	}
+	if userMinutes > 59 {
+		errStr = "Максимальная минута - 59. Надо написать в формате ЧЧ:ММ, например, 20:55"
+		return
+	}
+
+	errStr = ""
+	return
 }
 
 func validateCity(c tele.Context) (city string, state string, err error, exit bool) {

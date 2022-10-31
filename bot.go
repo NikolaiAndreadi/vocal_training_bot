@@ -39,6 +39,20 @@ func InitBot(cfg Config) *tele.Bot {
 }
 
 func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
+	cancelButton := &InlineButtonTemplate{
+		"Cancel",
+		"Отмена",
+		func(c tele.Context) error {
+			if err := fsm.ResetState(c); err != nil {
+				fmt.Println(err)
+			}
+			if err := c.Send("OK", MainUserMenu); err != nil {
+				fmt.Println(err)
+			}
+			return c.Respond()
+		},
+	}
+
 	AccountSettingsMenu = NewInlineMenu("Текущие настройки: нажми на пункт, чтобы изменить",
 		func(c tele.Context) (map[string]string, error) {
 			var name, age, city, tz, xp string
@@ -57,20 +71,6 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 			}
 			return data, nil
 		})
-
-	cancelButton := &InlineButtonTemplate{
-		"Cancel",
-		"Отмена",
-		func(c tele.Context) error {
-			if err := fsm.ResetState(c); err != nil {
-				fmt.Println(err)
-			}
-			if err := c.Send("OK", MainUserMenu); err != nil {
-				fmt.Println(err)
-			}
-			return c.Respond()
-		},
-	}
 
 	AccountSettingsMenu.AddButtons([]*InlineButtonTemplate{
 		{
@@ -205,7 +205,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				}
 				return v, nil
 			},
-			NoState,
+			NotificationSGSetTimeMon,
 		},
 		{
 			"NotificationSwitchTue",
@@ -231,7 +231,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				}
 				return v, nil
 			},
-			NoState,
+			NotificationSGSetTimeTue,
 		},
 		{
 			"NotificationSwitchWed",
@@ -257,7 +257,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				}
 				return v, nil
 			},
-			NoState,
+			NotificationSGSetTimeWed,
 		},
 		{
 			"NotificationSwitchThu",
@@ -283,7 +283,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				}
 				return v, nil
 			},
-			NoState,
+			NotificationSGSetTimeThu,
 		},
 		{
 			"NotificationSwitchFri",
@@ -309,7 +309,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				}
 				return v, nil
 			},
-			NoState,
+			NotificationSGSetTimeFri,
 		},
 		{
 			"NotificationSwitchSat",
@@ -335,7 +335,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				}
 				return v, nil
 			},
-			NoState,
+			NotificationSGSetTimeSat,
 		},
 		{
 			"NotificationSwitchSun",
@@ -361,7 +361,7 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 				}
 				return v, nil
 			},
-			NoState,
+			NotificationSGSetTimeSun,
 		},
 		{
 			"GlobalNotificationSwitch",
@@ -378,7 +378,9 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 			},
 			NoState,
 		},
+
 		{RowSplitterButton, nil, nil},
+
 		cancelButton,
 	})
 	WarmupNotificationsMenu.Construct(bot, fsm, 2)
