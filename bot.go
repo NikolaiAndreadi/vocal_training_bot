@@ -18,8 +18,8 @@ var (
 	}
 	MainUserMenu = ReplyMenuConstructor(MainUserMenuOptions, 2, false)
 
-	AccountSettingsMenu *InlineMenu
-	//WarmupNotificationsMenu *InlineMenu
+	AccountSettingsMenu     *InlineMenu
+	WarmupNotificationsMenu *InlineMenu
 )
 
 func InitBot(cfg Config) *tele.Bot {
@@ -57,6 +57,20 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 			}
 			return data, nil
 		})
+
+	cancelButton := &InlineButtonTemplate{
+		"Cancel",
+		"Отмена",
+		func(c tele.Context) error {
+			if err := fsm.ResetState(c); err != nil {
+				fmt.Println(err)
+			}
+			if err := c.Send("OK", MainUserMenu); err != nil {
+				fmt.Println(err)
+			}
+			return c.Respond()
+		},
+	}
 
 	AccountSettingsMenu.AddButtons([]*InlineButtonTemplate{
 		{
@@ -114,52 +128,260 @@ func setupInlineMenus(bot *tele.Bot, db *pgxpool.Pool, fsm *FSM) {
 			},
 			SettingsSGSetExperience,
 		},
-		{
-			"Cancel",
-			"Отмена",
-			func(c tele.Context) error {
-				if err := fsm.ResetState(c); err != nil {
-					fmt.Println(err)
-				}
-				if err := c.Send("OK", MainUserMenu); err != nil {
-					fmt.Println(err)
-				}
-				return c.Respond()
-			},
-		},
+		cancelButton,
 	})
 	AccountSettingsMenu.Construct(bot, fsm, 1)
 
-	/*
-		AccountSettingsMenu = InlineMenuConstructor(bot, fsm, 1, AccountSettingsButtons)
+	WarmupNotificationsMenu = NewInlineMenu("Настройки напоминаний о распевках:",
+		func(c tele.Context) (map[string]string, error) {
+			var globalOn, monOn, tueOn, wedOn, thuOn, friOn, satOn, sunOn,
+				monTime, tueTime, wedTime, thuTime, friTime, satTime, sunTime string
+			err := db.QueryRow(context.Background(),
+				`SELECT 
+    					cast(global_on AS varchar(5)), 
+    					cast(mon_on AS varchar(5)), 
+    					cast(tue_on AS varchar(5)), 
+    					cast(wed_on AS varchar(5)), 
+    					cast(thu_on AS varchar(5)), 
+    					cast(fri_on AS varchar(5)), 
+    					cast(sat_on AS varchar(5)), 
+    					cast(sun_on AS varchar(5)), 
+       					to_char(mon_time,'HH24:MI'), 
+       					to_char(tue_time,'HH24:MI'), 
+       					to_char(wed_time,'HH24:MI'), 
+       					to_char(thu_time,'HH24:MI'), 
+       					to_char(fri_time,'HH24:MI'), 
+       					to_char(sat_time,'HH24:MI'),
+       					to_char(sun_time,'HH24:MI')
+				 		FROM warmup_notifications WHERE user_id = $1`,
+				c.Sender().ID).Scan(&globalOn, &monOn, &tueOn, &wedOn, &thuOn, &friOn, &satOn, &sunOn,
+				&monTime, &tueTime, &wedTime, &thuTime, &friTime, &satTime, &sunTime)
+			if err != nil {
+				return nil, err
+			}
+			data := map[string]string{
+				"globalOn": globalOn,
 
-		WarmupNotificationsButtons = NewInlineMenuButtonBlock([]*InlineMenuButton{
-			{
-				"NotificationSwitchMon",
-				func(c tele.Context) (s string, err error) {
-					var v bool
-					err = db.QueryRow(context.Background(),
-						"SELECT mon_on FROM warmup_notifications WHERE user_id = $1", c.Sender().ID).Scan(&v)
-					s = "Понедельник: "
-					if v == true {
-						return s + "🔔", err
-					}
-					return s + "🔕", err
-				},
-				NoState,
-			},
-			{
-				"NotificationTimeMon",
-				func(c tele.Context) (s string, err error) {
-					err = db.QueryRow(context.Background(),
-						"SELECT to_char(mon_time,'HH24:MI') FROM warmup_notifications WHERE user_id = $1", c.Sender().ID).Scan(&s)
-					return s, err
-				},
-				NoState,
-			},
+				"monOn": monOn,
+				"tueOn": tueOn,
+				"wedOn": wedOn,
+				"thuOn": thuOn,
+				"friOn": friOn,
+				"satOn": satOn,
+				"sunOn": sunOn,
+
+				"monTime": monTime,
+				"tueTime": tueTime,
+				"wedTime": wedTime,
+				"thuTime": thuTime,
+				"friTime": friTime,
+				"satTime": satTime,
+				"sunTime": sunTime,
+			}
+			return data, nil
 		})
-		WarmupNotificationsMenu = InlineMenuConstructor(bot, fsm, 2, WarmupNotificationsButtons)
-	*/
+	WarmupNotificationsMenu.AddButtons([]*InlineButtonTemplate{
+		{
+			"NotificationSwitchMon",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Понедельник: "
+				v, ok := dc["monOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch monOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{
+			"NotificationTimeMon",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				v, ok := dc["monTime"]
+				if !ok {
+					return "HH:MM", fmt.Errorf("can't fetch monTime")
+				}
+				return v, nil
+			},
+			NoState,
+		},
+		{
+			"NotificationSwitchTue",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Вторник: "
+				v, ok := dc["tueOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch tueOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{
+			"NotificationTimeTue",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				v, ok := dc["tueTime"]
+				if !ok {
+					return "HH:MM", fmt.Errorf("can't fetch tueTime")
+				}
+				return v, nil
+			},
+			NoState,
+		},
+		{
+			"NotificationSwitchWed",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Среда: "
+				v, ok := dc["wedOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch wedOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{
+			"NotificationTimeWed",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				v, ok := dc["wedTime"]
+				if !ok {
+					return "HH:MM", fmt.Errorf("can't fetch wedTime")
+				}
+				return v, nil
+			},
+			NoState,
+		},
+		{
+			"NotificationSwitchThu",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Четверг: "
+				v, ok := dc["thuOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch thuOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{
+			"NotificationTimeThu",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				v, ok := dc["thuTime"]
+				if !ok {
+					return "HH:MM", fmt.Errorf("can't fetch thuTime")
+				}
+				return v, nil
+			},
+			NoState,
+		},
+		{
+			"NotificationSwitchFri",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Пятница: "
+				v, ok := dc["friOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch friOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{
+			"NotificationTimeFri",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				v, ok := dc["friTime"]
+				if !ok {
+					return "HH:MM", fmt.Errorf("can't fetch friTime")
+				}
+				return v, nil
+			},
+			NoState,
+		},
+		{
+			"NotificationSwitchSat",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Суббота: "
+				v, ok := dc["satOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch satOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{
+			"NotificationTimeSat",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				v, ok := dc["satTime"]
+				if !ok {
+					return "HH:MM", fmt.Errorf("can't fetch satTime")
+				}
+				return v, nil
+			},
+			NoState,
+		},
+		{
+			"NotificationSwitchSun",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Воскресенье: "
+				v, ok := dc["sunOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch sunOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{
+			"NotificationTimeSun",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				v, ok := dc["sunTime"]
+				if !ok {
+					return "HH:MM", fmt.Errorf("can't fetch sunTime")
+				}
+				return v, nil
+			},
+			NoState,
+		},
+		{
+			"GlobalNotificationSwitch",
+			func(c tele.Context, dc map[string]string) (string, error) {
+				s := "Глобальный выключатель: "
+				v, ok := dc["globalOn"]
+				if !ok {
+					return s + "???", fmt.Errorf("can't fetch globalOn")
+				}
+				if v == "true" {
+					return s + "🔔", nil
+				}
+				return s + "🔕", nil
+			},
+			NoState,
+		},
+		{RowSplitterButton, nil, nil},
+		cancelButton,
+	})
+	WarmupNotificationsMenu.Construct(bot, fsm, 2)
 }
 
 func setupHandlers(bot *tele.Bot, fsm *FSM) {
@@ -200,14 +422,11 @@ func setupHandlers(bot *tele.Bot, fsm *FSM) {
 		switch c.Text() {
 		case "Распевки":
 		case "Напоминания":
-			//return c.Send("Напоминания:",
-			//	FillInlineMenu(c, WarmupNotificationsMenu, WarmupNotificationsButtons))
+			return WarmupNotificationsMenu.Serve(c)
 		case "Записаться на урок":
 		case "Обо мне":
 		case "Настройки аккаунта":
 			return AccountSettingsMenu.Serve(c)
-			//return c.Send("Текущие настройки: нажми на пункт, чтобы изменить",
-			//	FillInlineMenu(c, AccountSettingsMenu, AccountSettingsButtons))
 		}
 		return nil
 	})
