@@ -53,6 +53,7 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE TABLE IF NOT EXISTS states (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		state			text,
+		message_id      int4,
 		temp_vars		jsonb		NOT NULL DEFAULT '{}'::jsonb,
 		
 		PRIMARY KEY (user_id)
@@ -133,28 +134,18 @@ func createSchema(conn *pgxpool.Pool) {
 	}
 }
 
-func UserIsInDatabase(UserID int64) (bool, error) {
+func UserIsInDatabase(UserID int64) bool {
 	var userID int64
 	err := DB.QueryRow(context.Background(), "SELECT user_id from users where user_id = $1", UserID).Scan(&userID)
 	if err == nil {
-		return userID != 0, nil
+		return userID != 0
 	}
 	if err == pgx.ErrNoRows {
-		return false, nil
+		return false
+	}
+	if err != nil {
+		fmt.Println(fmt.Errorf("UserIsInDatabase[%d]: %w", UserID, err))
 	}
 
-	return false, fmt.Errorf("UserIsInDatabase[%d]: %w", UserID, err)
-}
-
-func UserHasState(UserID int64) (bool, error) {
-	var state string
-	err := DB.QueryRow(context.Background(), "SELECT state from states where user_id = $1", UserID).Scan(&state)
-	if err == nil {
-		return state != NoState, nil
-	}
-	if err == pgx.ErrNoRows {
-		return false, nil
-	}
-
-	return false, fmt.Errorf("UserHasState[%d]: %w", UserID, err)
+	return false
 }

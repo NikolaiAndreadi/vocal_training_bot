@@ -58,10 +58,10 @@ bot API:
     / update_warmup
 
 Database Tables:
-    
+
     +Users:
         id (chat_id?) Int64
-        name Varchar(100)
+        Name Varchar(100)
         age int8 > 0
         city Varchar(50)
         timezone_raw int32  BETWEEN (-43200, 50400) -- shift in seconds
@@ -69,7 +69,7 @@ Database Tables:
         user_class CHAR(7) IS IN ("USER", "ADMIN", "STUDENT", "BANNED")
         join_date  Timestamptz
 
-    -- timezone generates from view "select name from pg_timezone_names where name not like 'posix%' and name not ilike 'system%' order by name;"
+    -- timezone generates from view "select Name from pg_timezone_names where Name not like 'posix%' and Name not ilike 'system%' order by Name;"
     -- https://stackoverflow.com/questions/55901/web-service-current-time-zone-for-a-city
 
     +WarmupGlobalNotifications:
@@ -116,12 +116,18 @@ Database Tables:
         text Text
 
 SCRATCHPAD:
-    - DEFINITELY dump database weekly
-    - LOGIC TO NOT UTILIZE changes of notification to go to the top of the leaderboard
-    - If missed warmup previously then send  MissedWarmupText
-    - On correct cheerup don't change message to drastically, as it helps to understand which is efficient and which is not
-    - what is warmup?
-    - add healhchecks, grafana, prometheus etc...
+- DEFINITELY dump database weekly
+- LOGIC TO NOT UTILIZE changes of notification to go to the top of the leaderboard
+- If missed warmup previously then send MissedWarmupText
+- On correct cheerup don't change message to drastically, as it helps to understand which is efficient and which is not
+- what is warmup?
+- add healhchecks, grafana, prometheus etc...
 
 TODO:
-    after settings change - update value in menu
+REFACTOR error handling in states:
+extract error handling. if error - write SOMETHING WENT WRONG and reset, log error text
+auto update menu that triggered event
+
+    BUG: something with FSM vars implementation, resets when not necessary
+
+    FEATURE: after menu is built, but not constructed, we should raise an error to prevent corrupted menu rendering
