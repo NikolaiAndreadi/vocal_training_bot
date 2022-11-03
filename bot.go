@@ -228,9 +228,9 @@ func SetupInlineMenus(bot *tele.Bot, fsm *BotExt.FSM, ims *BotExt.InlineMenusTyp
 				return s + "🔕", nil
 			},
 			OnClick: func(c tele.Context) error {
-				_, err := DB.Query(context.Background(), `
-					UPDATE warmup_notifications
-					SET global_on = NOT global_on
+				_, err := DB.Exec(context.Background(), `
+					UPDATE warmup_global_switch
+					SET global_switch = NOT global_switch
 					WHERE user_id = $1`, c.Sender().ID)
 				if err != nil {
 					fmt.Println(fmt.Errorf("can't switch global notifications: %w", err))
@@ -247,42 +247,36 @@ func SetupInlineMenus(bot *tele.Bot, fsm *BotExt.FSM, ims *BotExt.InlineMenusTyp
 }
 
 func WarmupNotificationsMenuDataFetcher(c tele.Context) (map[string]string, error) {
-	var globalOn, monOn, tueOn, wedOn, thuOn, friOn, satOn, sunOn,
-		monTime, tueTime, wedTime, thuTime, friTime, satTime, sunTime string
-	err := DB.QueryRow(context.Background(), `
+	rows, err := DB.Query(context.Background(), `
 				SELECT 
-    				cast(global_on AS varchar(5)), 
-    				cast(mon_on AS varchar(5)), 
-    				cast(tue_on AS varchar(5)), 
-    				cast(wed_on AS varchar(5)), 
-    				cast(thu_on AS varchar(5)), 
-    				cast(fri_on AS varchar(5)), 
-    				cast(sat_on AS varchar(5)), 
-    				cast(sun_on AS varchar(5)), 
-       				to_char(mon_time,'HH24:MI'), 
-       				to_char(tue_time,'HH24:MI'), 
-       				to_char(wed_time,'HH24:MI'), 
-       				to_char(thu_time,'HH24:MI'), 
-       				to_char(fri_time,'HH24:MI'), 
-       				to_char(sat_time,'HH24:MI'),
-       				to_char(sun_time,'HH24:MI')
-				FROM warmup_notifications WHERE user_id = $1`,
-		c.Sender().ID).Scan(&globalOn,
-		&monOn, &tueOn, &wedOn, &thuOn, &friOn, &satOn, &sunOn,
-		&monTime, &tueTime, &wedTime, &thuTime, &friTime, &satTime, &sunTime)
-
+				    day_of_week,
+    				cast(trigger_switch AS varchar(5)), 
+       				to_char(trigger_time,'HH24:MI')
+				FROM warmup_notifications WHERE user_id = $1`, c.Sender().ID)
 	if err != nil {
 		return nil, err
 	}
-
-	data := map[string]string{
-		"globalOn": globalOn,
-
-		"monOn": monOn, "tueOn": tueOn, "wedOn": wedOn, "thuOn": thuOn, "friOn": friOn,
-		"satOn": satOn, "sunOn": sunOn,
-		"monTime": monTime, "tueTime": tueTime, "wedTime": wedTime, "thuTime": thuTime, "friTime": friTime,
-		"satTime": satTime, "sunTime": sunTime,
+	defer rows.Close()
+	data := make(map[string]string)
+	for rows.Next() {
+		var dayName, daySwitch, notificationTime string
+		err = rows.Scan(&dayName, &daySwitch, &notificationTime)
+		if err != nil {
+			return data, err
+		}
+		data[dayName+"On"] = daySwitch
+		data[dayName+"Time"] = notificationTime
 	}
+
+	var globalSwitch string
+	err = DB.QueryRow(context.Background(),
+		`SELECT cast(global_switch AS varchar(5)) FROM warmup_global_switch WHERE user_id = $1`,
+		c.Sender().ID).Scan(&globalSwitch)
+	if err != nil {
+		return data, err
+	}
+	data["globalOn"] = globalSwitch
+
 	return data, nil
 }
 
@@ -302,11 +296,10 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 			return s + "🔕", nil
 		},
 		OnClick: func(c tele.Context) error {
-			query := fmt.Sprintf(`--
+			_, err := DB.Exec(context.Background(), `
 			UPDATE warmup_notifications
-			SET %s_on = NOT %s_on
-			WHERE user_id = $1`, dayUnique, dayUnique)
-			_, err := DB.Query(context.Background(), query, c.Sender().ID)
+			SET trigger_switch = NOT trigger_switch
+			WHERE (user_id = $1) AND (day_of_week = $2)`, c.Sender().ID, dayUnique)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't switch notifications for day %s: %w", dayUnique, err))
 			}

@@ -62,70 +62,19 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE TABLE IF NOT EXISTS warmup_notifications (
 		user_id		int8		REFERENCES users(user_id),
 		
-		global_on   bool        NOT NULL DEFAULT false,
-		
-		mon_on      bool        NOT NULL DEFAULT true,
-		tue_on      bool        NOT NULL DEFAULT true,
-		wed_on      bool        NOT NULL DEFAULT true,
-		thu_on      bool        NOT NULL DEFAULT true,
-		fri_on      bool        NOT NULL DEFAULT true,
-		sat_on      bool        NOT NULL DEFAULT true,
-		sun_on      bool        NOT NULL DEFAULT true,
-		
-		mon_time	time(0) NOT NULL DEFAULT '18:00:00',
-		tue_time	time(0) NOT NULL DEFAULT '18:00:00',
-		wed_time	time(0) NOT NULL DEFAULT '18:00:00',
-		thu_time	time(0) NOT NULL DEFAULT '18:00:00',
-		fri_time	time(0) NOT NULL DEFAULT '18:00:00',
-		sat_time	time(0) NOT NULL DEFAULT '18:00:00',
-		sun_time	time(0) NOT NULL DEFAULT '18:00:00'
+		day_of_week 	varchar(3)  NOT NULL CHECK (day_of_week IN ('sun','mon','tue','wed','thu','fri','sat')),
+		trigger_switch	bool        NOT NULL DEFAULT true,
+		trigger_time 	time(0) 	NOT NULL DEFAULT '18:00:00'
 	);
-	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__user_id ON warmup_notification_timings(user_id);
-
-	DROP TABLE IF EXISTS warmup_cheerups CASCADE;
-	CREATE TABLE IF NOT EXISTS warmup_cheerups (
-		cheerup_id	serial	NOT NULL,
-		cheerup_txt	text	NOT NULL,
-		online		bool,
-		
-		PRIMARY KEY (cheerup_id)
-	);
-
-	DROP TABLE IF EXISTS warmup_log CASCADE;
-	CREATE TABLE IF NOT EXISTS warmup_log (
-	    user_id		int8		REFERENCES users(user_id),
-	    exec_dt		timestamp,	-- timezone from users.timezone_raw
-	    duration	interval,	-- None -> not committed
-	    cheerup_id	int4 		REFERENCES warmup_cheerups(cheerup_id)
-	);
-	CREATE INDEX IF NOT EXISTS idx_warmup_log__user_id ON warmup_log(user_id);
-
-	DROP TABLE IF EXISTS become_student_requests CASCADE;
-	CREATE TABLE IF NOT EXISTS become_student_requests (
-		user_id		int8		REFERENCES users(user_id),
-	    datetime    timestamp,
-	    resolved    bool
-	);
-	CREATE INDEX IF NOT EXISTS idx_become_student_requests__resolved ON become_student_requests(resolved);
-
-	DROP TABLE IF EXISTS blog_messages CASCADE;
-	CREATE TABLE IF NOT EXISTS blog_messages (
-	    message_id	serial,
-	    datetime    timestamp	NOT NULL,
-	    user_class	VARCHAR(7)  NOT NULL DEFAULT 'ALL' CHECK (user_class IN ('ALL', 'USER', 'ADMIN', 'BANNED')), -- group for user
-		posted		bool,
-	    
-	    PRIMARY KEY (message_id)
-	);
-	CREATE INDEX IF NOT EXISTS idx_blog_messages__posted ON blog_messages(posted);
+	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__user_id ON warmup_notifications(user_id);
+	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__switch ON warmup_notifications(trigger_switch);
 	
-	DROP TABLE IF EXISTS texts CASCADE;
-	CREATE TABLE IF NOT EXISTS texts (
-	    name		text NOT NULL,
-	    description text NOT NULL,
-	    content     text NOT NULL
+	CREATE TABLE IF NOT EXISTS warmup_global_switch (
+		user_id			int8	REFERENCES users(user_id),
+		global_switch	bool	NOT NULL DEFAULT false
 	);
-	CREATE INDEX IF NOT EXISTS idx_texts__name ON texts(name);
+	CREATE INDEX IF NOT EXISTS idx_warmup_global_switch__user_id ON warmup_global_switch(user_id);
+
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {
@@ -148,4 +97,39 @@ func UserIsInDatabase(UserID int64) bool {
 	}
 
 	return false
+}
+
+func initUserDBs(userID int64) error {
+	_, err := DB.Exec(context.Background(), `
+	INSERT INTO states(user_id)
+	VALUES ($1)
+	ON CONFLICT DO NOTHING`, userID)
+	if err != nil {
+		return fmt.Errorf("initUserDBs: %w", err)
+	}
+
+	_, err = DB.Exec(context.Background(), `
+	INSERT INTO warmup_notifications(user_id, day_of_week)
+	VALUES 
+	    ($1, 'sun'),
+	    ($1, 'mon'),
+	    ($1, 'tue'),
+	    ($1, 'wed'),
+	    ($1, 'thu'),
+	    ($1, 'fri'),
+	    ($1, 'sat')
+	ON CONFLICT DO NOTHING`, userID)
+	if err != nil {
+		return fmt.Errorf("initUserDBs: %w", err)
+	}
+
+	_, err = DB.Exec(context.Background(), `
+	INSERT INTO warmup_global_switch(user_id)
+	VALUES ($1)
+	ON CONFLICT DO NOTHING`, userID)
+	if err != nil {
+		return fmt.Errorf("initUserDBs: %w", err)
+	}
+
+	return nil
 }

@@ -131,3 +131,50 @@ auto update menu that triggered event
     BUG: something with FSM vars implementation, resets when not necessary
 
     FEATURE: after menu is built, but not constructed, we should raise an error to prevent corrupted menu rendering
+
+
+
+	DROP TABLE IF EXISTS warmup_cheerups CASCADE;
+	CREATE TABLE IF NOT EXISTS warmup_cheerups (
+		cheerup_id	serial	NOT NULL,
+		cheerup_txt	text	NOT NULL,
+		online		bool,
+		
+		PRIMARY KEY (cheerup_id)
+	);
+
+	DROP TABLE IF EXISTS warmup_log CASCADE;
+	CREATE TABLE IF NOT EXISTS warmup_log (
+	    user_id		int8		REFERENCES users(user_id),
+	    exec_dt		timestamp,	-- timezone from users.timezone_raw
+	    duration	interval,	-- None -> not committed
+	    cheerup_id	int4 		REFERENCES warmup_cheerups(cheerup_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_warmup_log__user_id ON warmup_log(user_id);
+
+	DROP TABLE IF EXISTS become_student_requests CASCADE;
+	CREATE TABLE IF NOT EXISTS become_student_requests (
+		user_id		int8		REFERENCES users(user_id),
+	    datetime    timestamp,
+	    resolved    bool
+	);
+	CREATE INDEX IF NOT EXISTS idx_become_student_requests__resolved ON become_student_requests(resolved);
+
+	DROP TABLE IF EXISTS blog_messages CASCADE;
+	CREATE TABLE IF NOT EXISTS blog_messages (
+	    message_id	serial,
+	    datetime    timestamp	NOT NULL,
+	    user_class	VARCHAR(7)  NOT NULL DEFAULT 'ALL' CHECK (user_class IN ('ALL', 'USER', 'ADMIN', 'BANNED')), -- group for user
+		posted		bool,
+	    
+	    PRIMARY KEY (message_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_blog_messages__posted ON blog_messages(posted);
+	
+	DROP TABLE IF EXISTS texts CASCADE;
+	CREATE TABLE IF NOT EXISTS texts (
+	    name		text NOT NULL,
+	    description text NOT NULL,
+	    content     text NOT NULL
+	);
+	CREATE INDEX IF NOT EXISTS idx_texts__name ON texts(name);

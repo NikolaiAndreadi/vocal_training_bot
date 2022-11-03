@@ -190,11 +190,11 @@ func SetupStates(fsm *BotExt.FSM) {
 			if !ok {
 				return fmt.Errorf("can't fetch variable 'day' from states table")
 			}
-			query := fmt.Sprintf(`--
+			_, err := DB.Exec(context.Background(), `
 			UPDATE warmup_notifications
-			SET %s_time = $1
-			WHERE user_id = $2`, day)
-			_, err := DB.Exec(context.Background(), query, c.Message().Text, c.Sender().ID)
+			SET trigger_time = $1
+			WHERE (user_id = $2) AND (day_of_week = $3)`, c.Message().Text, c.Sender().ID, day)
+
 			return err
 		},
 		OnSuccess: "Время напоминания изменено!",
@@ -211,7 +211,7 @@ var (
 )
 
 func nameValidator(c tele.Context) string {
-	name := c.Text()
+	name := strings.TrimSpace(c.Text())
 	if ok := matchingPatternName.MatchString(name); !ok {
 		return "Имя должно включать только русские или английские буквы и быть 2 - 50 символов"
 	}
@@ -234,7 +234,7 @@ func ageValidator(c tele.Context) string {
 }
 
 func cityValidator(c tele.Context) string {
-	city := c.Text()
+	city := strings.TrimSpace(c.Text())
 	if ok := matchingPatternCity.MatchString(city); !ok {
 		return "Не могу распознать ответ. Попробуй еще раз!"
 	}
@@ -275,7 +275,7 @@ func timeValidator(c tele.Context) string {
 }
 
 func experienceValidator(c tele.Context) string {
-	xpVariant := strings.ToLower(c.Text())
+	xpVariant := strings.ToLower(strings.TrimSpace(c.Text()))
 	if ok := slices.Contains(experienceAllowedAnswers, xpVariant); !ok {
 		return "Не могу распознать ответ. Выбери вариант из списка"
 	}
@@ -283,7 +283,7 @@ func experienceValidator(c tele.Context) string {
 }
 
 func nameSaver(c tele.Context) error {
-	name := c.Text()
+	name := strings.TrimSpace(c.Text())
 	name = cases.Title(language.Tag{}).String(name)
 	BotExt.SetStateVar(c, surveySGVarName, name)
 	return nil
@@ -296,7 +296,7 @@ func ageSaver(c tele.Context) error {
 }
 
 func citySaver(c tele.Context) error {
-	city := c.Text()
+	city := strings.TrimSpace(c.Text())
 	city = cases.Title(language.Tag{}).String(city)
 	BotExt.SetStateVar(c, surveySGVarCity, city)
 	return nil
@@ -357,7 +357,7 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 }
 
 func saveSurveyRegisterUser(c tele.Context) error {
-	xp := c.Text()
+	xp := strings.ToLower(strings.TrimSpace(c.Text()))
 	values := BotExt.GetStateVars(c)
 	name, _ := values[surveySGVarName]
 	ageTxt, _ := values[surveySGVarAge]
@@ -373,6 +373,10 @@ func saveSurveyRegisterUser(c tele.Context) error {
 				INSERT INTO users(user_id, username, age, city, timezone_raw, timezone_txt, experience, join_dt)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 				`, c.Sender().ID, name, age, city, tzRaw, tzStr, xp, joinTime)
+	if err != nil {
+		return err
+	}
 
+	err = initUserDBs(c.Sender().ID)
 	return err
 }
