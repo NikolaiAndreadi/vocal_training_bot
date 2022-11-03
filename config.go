@@ -22,11 +22,17 @@ type Config struct {
 
 	Pg struct {
 		Host   string `yaml:"Host" envconfig:"PG_HOST" validate:"nonzero"`
-		Port   uint16 `yaml:"Port" envconfig:"PG_PORT" validate:"nonzero"`
+		Port   string `yaml:"Port" envconfig:"PG_PORT" validate:"nonzero"`
 		User   string `yaml:"User" envconfig:"PG_USER" validate:"nonzero"`
-		Pass   string `yaml:"Pass" envconfig:"PG_PASS" validate:"nonzero"`
+		Pass   string `yaml:"Pass" envconfig:"PG_PASS"`
 		DBName string `yaml:"DBName" envconfig:"PG_DB_NAME" validate:"nonzero"`
 	} `yaml:"Postgres"`
+
+	Redis struct {
+		Host string `yaml:"Host" envconfig:"REDIS_HOST" validate:"nonzero"`
+		Port string `yaml:"Port" envconfig:"REDIS_PORT" validate:"nonzero"`
+		Pass string `yaml:"Pass" envconfig:"REDIS_PASS"`
+	} `yaml:"Redis"`
 }
 
 func parseYamlConfig(cfg *Config) error {

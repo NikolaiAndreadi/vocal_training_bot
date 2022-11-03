@@ -14,7 +14,7 @@ var DB *pgxpool.Pool
 // there's nothing to do.
 // TODO: add MaxConnections and other parameters here and to config structure
 func InitDbConnection(cfg Config) *pgxpool.Pool {
-	DSN := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s",
+	DSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s",
 		cfg.Pg.Host, cfg.Pg.Port, cfg.Pg.User, cfg.Pg.Pass, cfg.Pg.DBName)
 
 	pgCfg, err := pgxpool.ParseConfig(DSN)
