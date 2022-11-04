@@ -74,6 +74,7 @@ func createSchema(conn *pgxpool.Pool) {
 		global_switch	bool	NOT NULL DEFAULT false
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_global_switch__user_id ON warmup_global_switch(user_id);
+	CREATE INDEX IF NOT EXISTS idx_warmup_global_switch__global_switch ON warmup_global_switch(global_switch);
 
 	`
 

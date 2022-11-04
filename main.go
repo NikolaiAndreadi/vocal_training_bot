@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 func main() {
 	cfg := ParseConfig()
 
@@ -9,10 +7,7 @@ func main() {
 
 	b := InitBot(cfg)
 
-	ns := NewNotificationService(cfg)
-
-	pong, err := ns.rd.Ping().Result()
-	fmt.Println(pong, err)
+	//ns := NewNotificationService(cfg)
 
 	b.Start()
 }
