@@ -190,10 +190,26 @@ func SetupStates(fsm *BotExt.FSM) {
 			if !ok {
 				return fmt.Errorf("can't fetch variable 'day' from states table")
 			}
+
+			userID := c.Sender().ID
 			_, err := DB.Exec(context.Background(), `
 			UPDATE warmup_notifications
 			SET trigger_time = $1
-			WHERE (user_id = $2) AND (day_of_week = $3)`, c.Message().Text, c.Sender().ID, day)
+			WHERE (user_id = $2) AND (day_of_week = $3)`, c.Message().Text, userID, day)
+			if err != nil {
+				return err
+			}
+
+			ts, err := getNearestNotificationFromPg(userID)
+			if err != nil {
+				return fmt.Errorf("state NotificationSGSetTime: getNearestNotificationFromPg: %w", err)
+			}
+			if err = notificationService.DelUser(userID); err != nil {
+				return fmt.Errorf("state NotificationSGSetTime: DelUser: %w", err)
+			}
+			if err = notificationService.addUser(userID, ts); err != nil {
+				return fmt.Errorf("state NotificationSGSetTime: addUser: %w", err)
+			}
 
 			return err
 		},

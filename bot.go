@@ -228,14 +228,24 @@ func SetupInlineMenus(bot *tele.Bot, fsm *BotExt.FSM, ims *BotExt.InlineMenusTyp
 				return s + "🔕", nil
 			},
 			OnClick: func(c tele.Context) error {
-				_, err := DB.Exec(context.Background(), `
-					UPDATE warmup_global_switch
+				var res bool
+				err := DB.QueryRow(context.Background(), `
+					UPDATE warmup_notification_global
 					SET global_switch = NOT global_switch
-					WHERE user_id = $1`, c.Sender().ID)
+					WHERE user_id = $1
+					RETURNING global_switch`, c.Sender().ID).Scan(&res)
 				if err != nil {
 					fmt.Println(fmt.Errorf("can't switch global notifications: %w", err))
 				}
 				ims.Update(c, WarmupNotificationsMenu)
+				if res {
+					err = notificationService.AddUser(c.Sender().ID)
+				} else {
+					err = notificationService.DelUser(c.Sender().ID)
+				}
+				if err != nil {
+					fmt.Println(fmt.Errorf("can't switch global notifications: %w", err))
+				}
 				return c.Respond()
 			}},
 		cancelButton,
@@ -258,8 +268,8 @@ func WarmupNotificationsMenuDataFetcher(c tele.Context) (map[string]string, erro
 	}
 	defer rows.Close()
 	data := make(map[string]string)
+	var dayName, daySwitch, notificationTime string
 	for rows.Next() {
-		var dayName, daySwitch, notificationTime string
 		err = rows.Scan(&dayName, &daySwitch, &notificationTime)
 		if err != nil {
 			return data, err
@@ -267,10 +277,13 @@ func WarmupNotificationsMenuDataFetcher(c tele.Context) (map[string]string, erro
 		data[dayName+"On"] = daySwitch
 		data[dayName+"Time"] = notificationTime
 	}
+	if err := rows.Err(); err != nil {
+		return data, fmt.Errorf("WarmupNotificationsMenuDataFetcher: postgres itetator %w", err)
+	}
 
 	var globalSwitch string
 	err = DB.QueryRow(context.Background(),
-		`SELECT cast(global_switch AS varchar(5)) FROM warmup_global_switch WHERE user_id = $1`,
+		`SELECT cast(global_switch AS varchar(5)) FROM warmup_notification_global WHERE user_id = $1`,
 		c.Sender().ID).Scan(&globalSwitch)
 	if err != nil {
 		return data, err
@@ -296,14 +309,26 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 			return s + "🔕", nil
 		},
 		OnClick: func(c tele.Context) error {
+			userID := c.Sender().ID
 			_, err := DB.Exec(context.Background(), `
 			UPDATE warmup_notifications
 			SET trigger_switch = NOT trigger_switch
-			WHERE (user_id = $1) AND (day_of_week = $2)`, c.Sender().ID, dayUnique)
+			WHERE (user_id = $1) AND (day_of_week = $2)`, userID, dayUnique)
 			if err != nil {
 				fmt.Println(fmt.Errorf("can't switch notifications for day %s: %w", dayUnique, err))
 			}
 			ims.Update(c, WarmupNotificationsMenu)
+
+			ts, err := getNearestNotificationFromPg(userID)
+			if err != nil {
+				fmt.Println(fmt.Errorf("switch notifications for day %s: getNearestNotificationFromPg: %w", dayUnique, err))
+			}
+			if err = notificationService.DelUser(userID); err != nil {
+				fmt.Println(fmt.Errorf("switch notifications for day %s: %w", dayUnique, err))
+			}
+			if err = notificationService.addUser(userID, ts); err != nil {
+				fmt.Println(fmt.Errorf("switch notifications for day %s: %w", dayUnique, err))
+			}
 			return c.Respond()
 		},
 	}

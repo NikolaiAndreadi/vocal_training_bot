@@ -49,7 +49,6 @@ func createSchema(conn *pgxpool.Pool) {
 		PRIMARY KEY (user_id)
 	);
 
-	DROP TABLE IF EXISTS states CASCADE;
 	CREATE TABLE IF NOT EXISTS states (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		state			text,
@@ -69,13 +68,20 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__user_id ON warmup_notifications(user_id);
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__switch ON warmup_notifications(trigger_switch);
 	
-	CREATE TABLE IF NOT EXISTS warmup_global_switch (
-		user_id			int8	REFERENCES users(user_id),
-		global_switch	bool	NOT NULL DEFAULT false
+	CREATE TABLE IF NOT EXISTS warmup_cheerups (
+		cheerup_id	int8	PRIMARY KEY ,
+		cheerup_txt text	NOT NULL
 	);
-	CREATE INDEX IF NOT EXISTS idx_warmup_global_switch__user_id ON warmup_global_switch(user_id);
-	CREATE INDEX IF NOT EXISTS idx_warmup_global_switch__global_switch ON warmup_global_switch(global_switch);
+	CREATE INDEX IF NOT EXISTS idx_warmup_cheerups__cheerup_id ON warmup_cheerups(cheerup_id);
 
+
+	CREATE TABLE IF NOT EXISTS warmup_notification_global (
+		user_id			int8	REFERENCES users(user_id),
+		global_switch	bool	NOT NULL DEFAULT false,
+		last_cheerup_id int8	REFERENCES warmup_cheerups(cheerup_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_warmup_notification_global__user_id ON warmup_notification_global(user_id);
+	CREATE INDEX IF NOT EXISTS idx_warmup_notification_global__global_switch ON warmup_notification_global(global_switch);
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {
@@ -125,7 +131,7 @@ func initUserDBs(userID int64) error {
 	}
 
 	_, err = DB.Exec(context.Background(), `
-	INSERT INTO warmup_global_switch(user_id)
+	INSERT INTO warmup_notification_global(user_id)
 	VALUES ($1)
 	ON CONFLICT DO NOTHING`, userID)
 	if err != nil {
