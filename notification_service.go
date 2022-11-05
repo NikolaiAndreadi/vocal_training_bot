@@ -102,7 +102,7 @@ func (ns *NotificationService) processUsers() error {
 	now := time.Now().Unix()
 	users, err := ns.rd.ZRevRangeByScore(delayedNotificationList,
 		redis.ZRangeBy{
-			Min: "0",
+			Min: "1",
 			Max: strconv.FormatInt(now, 10),
 		}).Result()
 	if err != nil {
@@ -192,13 +192,14 @@ func getNearestNotificationFromPg(userID int64) (timestamp int64, err error) {
 							ELSE 7 - extract(dow FROM user_dt) + user_dow_int
 						END
 				END
-			) AS nearest_notification
+			) - timezone_raw * INTERVAL '1 minute' AS nearest_notification -- convert to UTC Time
 
 			FROM (
 				SELECT
 					user_id,
 					trigger_time,
 					user_dt,
+					timezone_raw,
 					CASE day_of_week
 						WHEN 'sun' THEN 0
 						WHEN 'mon' THEN 1
@@ -217,6 +218,7 @@ func getNearestNotificationFromPg(userID int64) (timestamp int64, err error) {
 				INNER JOIN(
 					SELECT
 						user_id,
+						timezone_raw,
 						now() AT TIME ZONE 'UTC' + (timezone_raw * INTERVAL '1 minute') AS user_dt
 					FROM users
 				) user_time USING (user_id)
@@ -254,12 +256,13 @@ func getNearestNotificationsFromPg() (results notificationQuery, err error) {
 							ELSE 7 - extract(dow FROM user_dt) + user_dow_int
 						END
 				END
-				) AS nearest_notification
+				) - timezone_raw * INTERVAL '1 minute' AS nearest_notification -- convert to UTC Time
 			FROM
 				(SELECT 
 					user_id,
 					trigger_time,
 					user_dt,
+					timezone_raw,
 					CASE day_of_week
 						WHEN 'sun' THEN 0
 						WHEN 'mon' THEN 1
@@ -278,6 +281,7 @@ func getNearestNotificationsFromPg() (results notificationQuery, err error) {
 				INNER JOIN(
 					SELECT 
 						user_id,
+						timezone_raw,
 						now() AT TIME ZONE 'UTC' + (timezone_raw * INTERVAL '1 minute') AS user_dt
 					FROM users
 				) user_time USING (user_id)
