@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"vocal_training_bot/BotExt"
 
@@ -25,6 +26,14 @@ const (
 	WarmupNotificationsMenu = "WarmupNotificationsMenu"
 )
 
+type UserIDType struct {
+	UserID int64
+}
+
+func (u UserIDType) Recipient() string {
+	return strconv.FormatInt(u.UserID, 10)
+}
+
 func InitBot(cfg Config) *tele.Bot {
 	teleCfg := tele.Settings{
 		Token: cfg.Bot.Token,
@@ -39,6 +48,17 @@ func InitBot(cfg Config) *tele.Bot {
 	SetupInlineMenus(bot, fsm, inlineMenus)
 	SetupStates(fsm)
 	SetupHandlers(bot, fsm, inlineMenus)
+
+	notificationService.handler = func(userID int64) error {
+		warmupText, err := getRandomCheerup()
+		if err != nil {
+			return fmt.Errorf("notificationService.handler: %w", err)
+		}
+
+		_, sendErr := bot.Send(UserIDType{userID}, warmupText)
+
+		return sendErr
+	}
 
 	return bot
 }

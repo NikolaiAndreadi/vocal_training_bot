@@ -69,7 +69,7 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__switch ON warmup_notifications(trigger_switch);
 	
 	CREATE TABLE IF NOT EXISTS warmup_cheerups (
-		cheerup_id	int8	PRIMARY KEY ,
+		cheerup_id	serial	PRIMARY KEY ,
 		cheerup_txt text	NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_cheerups__cheerup_id ON warmup_cheerups(cheerup_id);
@@ -139,4 +139,16 @@ func initUserDBs(userID int64) error {
 	}
 
 	return nil
+}
+
+func getRandomCheerup() (cheerup string, err error) {
+	// TODO prevent repetition (with warmup_notification_global.last_cheerup_id)
+	err = DB.QueryRow(context.Background(), `
+		SELECT cheerup_txt from warmup_cheerups
+		ORDER BY RANDOM()
+		LIMIT 1`).Scan(&cheerup)
+	if err != nil {
+		err = fmt.Errorf("selectRandomCheerup: %w", err)
+	}
+	return
 }
