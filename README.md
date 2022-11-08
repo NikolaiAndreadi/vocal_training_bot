@@ -3,31 +3,26 @@ telegram bot for @vershkovaaa
 
 bot API:  
 
-    /start - starts survey  
+    /start - starts survey +  
     ask for: Name, Age, City, Timezone, Experience (Newbie, < 1 year, 1-2 years, 2-3 years, 3-5 years, > 5 years)
     then: add to **users** table
     ! No functions are available until survey completion
 
     -------
     USER API
-    / account_settings
-        / change_name
-        / change_age
-        / change_city
-        / change_timezone
-        / change_experience
-        / show current
+    / account_settings + 
+        / change_name +
+        / change_age +
+        / change_city +
+        / change_timezone +
+        / change_experience +
+        / show current +
 
-    / warmup_notification_settings    
-        / notification_switch (on/off)
-        / notification_days (7 digit mask)
-        / change_time_for_day(DAY) in HH:MM format
-        / show_schedule
-        
-        / start_warmup
-        / warmup_in_progress
-        / end_warmup
-        / reject_warmup
+    / warmup_notification_settings +    
+        / notification_switch (on/off) +
+        / notification_days (7 digit mask) +
+        / change_time_for_day(DAY) in HH:MM format +
+        / show_schedule +
 
     / warmups
         / fetch_free_warmup
