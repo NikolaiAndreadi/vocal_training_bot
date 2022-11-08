@@ -54,9 +54,7 @@ func InitBot(cfg Config) *tele.Bot {
 		if err != nil {
 			return fmt.Errorf("notificationService.handler: %w", err)
 		}
-
 		_, sendErr := bot.Send(UserIDType{userID}, warmupText)
-
 		return sendErr
 	}
 

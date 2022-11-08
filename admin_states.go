@@ -38,7 +38,7 @@ func RecordMessage(c tele.Context) error {
 	}
 
 	if c.Text() == "СТОП" {
-		return SendMessages(recordID)
+		return SendMessages(c.Bot(), recordID)
 	}
 
 	if c.Text() == "ОТМЕНА" {
@@ -63,7 +63,7 @@ func RecordMessage(c tele.Context) error {
 	}
 
 	media := msg.Media()
-	mediaType := "Text"
+	mediaType := "text"
 	var mediaJSON []byte
 	if media != nil {
 		mediaType = media.MediaType()
@@ -109,11 +109,15 @@ func checkOrCreateStorageFolder() {
 
 type message struct {
 	messageID string
-	chatID    int
+	chatID    int64
 	albumID   string
 }
 
-func SendMessages(recordID string) error {
+func (m message) MessageSig() (messageID string, chatID int64) {
+	return m.messageID, m.chatID
+}
+
+func SendMessages(b *tele.Bot, recordID string) error {
 	rows, err := DB.Query(context.Background(), `
 		SELECT message_id, chat_id, album_id from messages
 		WHERE record_id = $1
@@ -121,27 +125,49 @@ func SendMessages(recordID string) error {
 
 	defer rows.Close()
 	if err != nil {
-		return fmt.Errorf("SendMessages[recordID = %s]: pg query error %w", recordID, err)
+		return fmt.Errorf("SendMessages[recordID = %s]: pg messages query error %w", recordID, err)
 	}
 
-	var BakedMessage []*message
+	var BakedMessage []message
 	var lastAlbum string
 	var msg message
 
 	for rows.Next() {
 		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID)
 		if err != nil {
-			return fmt.Errorf("SendMessages[recordID = %s]: row scan error %w", recordID, err)
+			return fmt.Errorf("SendMessages[recordID = %s]: messages row scan error %w", recordID, err)
 		}
 		if msg.albumID == "" {
-			BakedMessage = append(BakedMessage, &msg)
+			BakedMessage = append(BakedMessage, msg)
 			continue
 		}
 		if msg.albumID == lastAlbum {
 			continue
 		}
-		BakedMessage = append(BakedMessage, &msg)
+		BakedMessage = append(BakedMessage, msg)
 	}
 
+	rows, err = DB.Query(context.Background(), `
+		SELECT user_id from users
+		WHERE user_class = 'USER'`)
+	defer rows.Close()
+	if err != nil {
+		return fmt.Errorf("SendMessages[recordID = %s]: pg query error %w", recordID, err)
+	}
+
+	var userID int64
+	for rows.Next() {
+		err := rows.Scan(&userID)
+		if err != nil {
+			return fmt.Errorf("SendMessages[recordID = %s]: users row scan error %w", recordID, err)
+		}
+		for _, bm := range BakedMessage {
+			_, err = b.Copy(UserIDType{userID}, bm)
+			if err != nil {
+				fmt.Println(fmt.Errorf("SendMessages[recordID = %s]: sending message error for user [%d]: %w",
+					recordID, userID, err))
+			}
+		}
+	}
 	return nil
 }
