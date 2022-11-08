@@ -20,15 +20,8 @@ type NotificationService struct {
 	quit      chan struct{}
 }
 
-func NewNotificationService(cfg Config, frequency time.Duration) *NotificationService {
+func NewNotificationService(rd *redis.Client, frequency time.Duration) *NotificationService {
 	ns := &NotificationService{}
-	rd := redis.NewClient(&redis.Options{
-		Addr:     cfg.Redis.Host + ":" + cfg.Redis.Port,
-		Password: cfg.Redis.Pass,
-	})
-	if err := rd.Ping().Err(); err != nil {
-		panic(err)
-	}
 
 	ns.rd = rd
 	ns.frequency = frequency
