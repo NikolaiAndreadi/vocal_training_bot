@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	tele "gopkg.in/telebot.v3"
 )
 
 var DB *pgxpool.Pool
@@ -16,8 +15,11 @@ const NoState = ""
 
 ///////////////////////////////////////////////// STATE FUNCTIONS
 
-func setState(c tele.Context, stateName string) {
-	userID := c.Sender().ID
+func SetDatabaseEntry(db *pgxpool.Pool) {
+	DB = db
+}
+
+func setState(userID int64, stateName string) {
 	_, err := DB.Exec(context.Background(), `
 		INSERT INTO states (user_id, state) 
 		VALUES($1, $2)
@@ -32,8 +34,7 @@ func setState(c tele.Context, stateName string) {
 	}
 }
 
-func getState(c tele.Context) (stateName string) {
-	userID := c.Sender().ID
+func getState(userID int64) (stateName string) {
 	err := DB.QueryRow(context.Background(),
 		"SELECT state FROM states WHERE user_id = $1", userID).Scan(&stateName)
 	if err == pgx.ErrNoRows {
@@ -56,15 +57,14 @@ func HasState(UserID int64) bool {
 	return false
 }
 
-func ResetState(c tele.Context) {
-	setState(c, NoState)
-	clearStateVars(c)
+func ResetState(userID int64) {
+	setState(userID, NoState)
+	clearStateVars(userID)
 }
 
 ///////////////////////////////////////////////// STATE VARIABLES FUNCTIONS
 
-func SetStateVar(c tele.Context, varName string, varValue string) {
-	userID := c.Sender().ID
+func SetStateVar(userID int64, varName string, varValue string) {
 	_, err := DB.Exec(context.Background(), `
 		UPDATE states
 		SET temp_vars =  temp_vars || jsonb_build_object($1::text,$2::text)
@@ -76,8 +76,7 @@ func SetStateVar(c tele.Context, varName string, varValue string) {
 	}
 }
 
-func GetStateVar(c tele.Context, varName string) (value string, ok bool) {
-	userID := c.Sender().ID
+func GetStateVar(userID int64, varName string) (value string, ok bool) {
 	err := DB.QueryRow(context.Background(), `
 		SELECT temp_vars->>$1 FROM states
 		WHERE user_id = $2
@@ -91,9 +90,8 @@ func GetStateVar(c tele.Context, varName string) (value string, ok bool) {
 	return value, true
 }
 
-func GetStateVars(c tele.Context) (values map[string]string) {
+func GetStateVars(userID int64) (values map[string]string) {
 	var strJSON []byte
-	userID := c.Sender().ID
 
 	err := DB.QueryRow(context.Background(), `
 		SELECT temp_vars FROM states
@@ -116,9 +114,7 @@ func GetStateVars(c tele.Context) (values map[string]string) {
 	return
 }
 
-func clearStateVars(c tele.Context) {
-	userID := c.Sender().ID
-
+func clearStateVars(userID int64) {
 	_, err := DB.Exec(context.Background(), `
 		UPDATE states
 		SET temp_vars = '{}'::jsonb
@@ -130,8 +126,7 @@ func clearStateVars(c tele.Context) {
 
 /////////////////////////////////////////////////////////////////// MessageID functions
 
-func setMessageID(c tele.Context, msgID int) {
-	userID := c.Sender().ID
+func setMessageID(userID int64, msgID int) {
 	_, err := DB.Exec(context.Background(), `
 		INSERT INTO states (user_id, message_id) 
 		VALUES($1, $2)
@@ -144,8 +139,7 @@ func setMessageID(c tele.Context, msgID int) {
 	}
 }
 
-func getMessageID(c tele.Context) (msgID int, ok bool) {
-	userID := c.Sender().ID
+func getMessageID(userID int64) (msgID int, ok bool) {
 	err := DB.QueryRow(context.Background(),
 		"SELECT message_id FROM states WHERE user_id = $1", userID).Scan(&msgID)
 	if err == pgx.ErrNoRows {

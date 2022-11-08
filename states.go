@@ -186,12 +186,13 @@ func SetupStates(fsm *BotExt.FSM) {
 		OnTrigger: "Введи время срабатывания напоминания в формате ЧЧ:ММ, например, 6:40 или 19:05",
 		Validator: timeValidator,
 		Manipulator: func(c tele.Context) error {
-			day, ok := BotExt.GetStateVar(c, "day")
+			userID := c.Sender().ID
+
+			day, ok := BotExt.GetStateVar(userID, "day")
 			if !ok {
 				return fmt.Errorf("can't fetch variable 'day' from states table")
 			}
 
-			userID := c.Sender().ID
 			_, err := DB.Exec(context.Background(), `
 			UPDATE warmup_notifications
 			SET trigger_time = $1
@@ -301,20 +302,20 @@ func experienceValidator(c tele.Context) string {
 func nameSaver(c tele.Context) error {
 	name := strings.TrimSpace(c.Text())
 	name = cases.Title(language.Tag{}).String(name)
-	BotExt.SetStateVar(c, surveySGVarName, name)
+	BotExt.SetStateVar(c.Sender().ID, surveySGVarName, name)
 	return nil
 }
 
 func ageSaver(c tele.Context) error {
 	age := c.Text()
-	BotExt.SetStateVar(c, surveySGVarAge, age)
+	BotExt.SetStateVar(c.Sender().ID, surveySGVarAge, age)
 	return nil
 }
 
 func citySaver(c tele.Context) error {
 	city := strings.TrimSpace(c.Text())
 	city = cases.Title(language.Tag{}).String(city)
-	BotExt.SetStateVar(c, surveySGVarCity, city)
+	BotExt.SetStateVar(c.Sender().ID, surveySGVarCity, city)
 	return nil
 }
 
@@ -326,8 +327,9 @@ func timezoneSaver(c tele.Context) error {
 	if err != nil {
 		return err
 	}
-	BotExt.SetStateVar(c, surveySGVarTimezoneStr, utcTimezone)
-	BotExt.SetStateVar(c, surveySGVarTimezoneRaw, utcMinutesShift)
+	userID := c.Sender().ID
+	BotExt.SetStateVar(userID, surveySGVarTimezoneStr, utcTimezone)
+	BotExt.SetStateVar(userID, surveySGVarTimezoneRaw, utcMinutesShift)
 	return c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
 }
 
@@ -373,8 +375,10 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 }
 
 func saveSurveyRegisterUser(c tele.Context) error {
+	userID := c.Sender().ID
+
 	xp := strings.ToLower(strings.TrimSpace(c.Text()))
-	values := BotExt.GetStateVars(c)
+	values := BotExt.GetStateVars(userID)
 	name, _ := values[surveySGVarName]
 	ageTxt, _ := values[surveySGVarAge]
 	age, _ := strconv.Atoi(ageTxt)
@@ -388,7 +392,7 @@ func saveSurveyRegisterUser(c tele.Context) error {
 	_, err := DB.Exec(context.Background(), `
 				INSERT INTO users(user_id, username, age, city, timezone_raw, timezone_txt, experience, join_dt)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-				`, c.Sender().ID, name, age, city, tzRaw, tzStr, xp, joinTime)
+				`, userID, name, age, city, tzRaw, tzStr, xp, joinTime)
 	if err != nil {
 		return err
 	}

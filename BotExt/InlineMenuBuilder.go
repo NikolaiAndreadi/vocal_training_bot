@@ -26,11 +26,12 @@ func (ims *InlineMenusType) GetInlineMenu(name string) *InlineMenu {
 }
 
 func (ims *InlineMenusType) Update(c tele.Context, name string) {
+	userID := c.Sender().ID
 	if menu, ok := ims.menus[name]; ok {
-		if msgID, ok := getMessageID(c); ok {
+		if msgID, ok := getMessageID(userID); ok {
 			menu.Update(c, strconv.Itoa(msgID))
 		} else {
-			fmt.Println(fmt.Errorf("ims.Update[%d]: can't fetch menuMessageID from db for menu %s", c.Sender().ID, name))
+			fmt.Println(fmt.Errorf("ims.Update[%d]: can't fetch menuMessageID from db for menu %s", userID, name))
 		}
 	} else {
 		fmt.Println(fmt.Errorf("InlineMenusType.Update: can't find menu '%s'", name))
@@ -51,7 +52,7 @@ func (ims *InlineMenusType) Show(c tele.Context, menuName string) error {
 	if !ok {
 		return fmt.Errorf("InlineMenusType.Show: menu %s is not registered", menuName)
 	}
-	setMessageID(c, c.Message().ID+1) // current context - pressed ReplyMenu button, so next one - inline menu
+	setMessageID(c.Sender().ID, c.Message().ID+1) // current context - pressed ReplyMenu button, so next one - inline menu
 	err := c.Send(menu.header, menu.bake(c))
 	return err
 }

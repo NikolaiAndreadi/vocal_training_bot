@@ -1,20 +1,21 @@
 package BotExt
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	tele "gopkg.in/telebot.v3"
 )
+
+var ContinueState = errors.New("__CONTINUE__")
 
 type FSM struct {
 	stateMap map[string]*State
 	menus    *InlineMenusType
 }
 
-func NewFiniteStateMachine(db *pgxpool.Pool, ims *InlineMenusType) *FSM {
-	DB = db
+func NewFiniteStateMachine(ims *InlineMenusType) *FSM {
 	return &FSM{
 		stateMap: make(map[string]*State),
 		menus:    ims,
@@ -65,7 +66,7 @@ func (f *FSM) Trigger(c tele.Context, stateName string, byMenu ...string) {
 }
 
 func (f *FSM) Update(c tele.Context) {
-	stateName := getState(c)
+	stateName := getState(c.Sender().ID)
 	if stateName == "" {
 		return
 	}
@@ -107,7 +108,7 @@ type State struct {
 
 // Trigger is a method to start a State for specific user.
 func (s *State) Trigger(c tele.Context) {
-	setState(c, s.Name)
+	setState(c.Sender().ID, s.Name)
 	var err error
 	if s.OnTriggerExtra == nil {
 		err = c.Send(s.OnTrigger)
@@ -121,31 +122,36 @@ func (s *State) Trigger(c tele.Context) {
 
 // Update is a function to process current state
 func (s *State) Update(c tele.Context) {
-	errString := s.Validator(c)
-	if errString != "" {
-		err := c.Send(errString)
-		if err != nil {
-			fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send validation error message: %w", s.Name, c.Sender().ID, err))
+	if s.Validator != nil {
+		errString := s.Validator(c)
+		if errString != "" {
+			err := c.Send(errString)
+			if err != nil {
+				fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send validation error message: %w", s.Name, c.Sender().ID, err))
+			}
+			return
 		}
-		return
 	}
 
 	if s.Manipulator != nil {
 		err := s.Manipulator(c)
 		if err != nil {
+			if err == ContinueState {
+				return
+			}
 			err2 := c.Send("Что-то пошло не так... Мы будем разбираться, в чем была проблема. Попробуй повторить это действие позже!")
 			if err2 != nil {
 				fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send a manipulator message: %w", s.Name, c.Sender().ID, err))
 			}
 			fmt.Println(fmt.Errorf("state %s.Update[%d]: manipulator: %w", s.Name, c.Sender().ID, err))
-			ResetState(c)
+			ResetState(c.Sender().ID)
 			return
 		}
 	}
 
 	if s.menuTrigger != "" {
 		menu := s.fsm.menus.GetInlineMenu(s.menuTrigger)
-		if msgID, ok := getMessageID(c); ok {
+		if msgID, ok := getMessageID(c.Sender().ID); ok {
 			menu.Update(c, strconv.Itoa(msgID))
 		} else {
 			fmt.Println(fmt.Errorf("state %s.Update[%d]: can't fetch menuMessageID from db", s.Name, c.Sender().ID))
@@ -165,7 +171,7 @@ func (s *State) Update(c tele.Context) {
 	}
 
 	if s.next == "" {
-		ResetState(c)
+		ResetState(c.Sender().ID)
 	} else {
 		s.fsm.Trigger(c, s.next)
 	}
