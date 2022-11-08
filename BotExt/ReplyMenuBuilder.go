@@ -22,13 +22,15 @@ func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int, onc
 	var buttons []tele.Btn
 	rows := make([]tele.Row, rowCount)
 	for i, possibleSelection := range possibleSelections {
-		if i%maxElementsInRow == 0 {
+		if (i%maxElementsInRow == 0) || possibleSelection == RowSplitterButton {
 			if len(buttons) != 0 {
 				rows = append(rows, menu.Row(buttons...))
 			}
 			buttons = make([]tele.Btn, 0, maxElementsInRow)
 		}
-		buttons = append(buttons, menu.Text(possibleSelection))
+		if possibleSelection != RowSplitterButton {
+			buttons = append(buttons, menu.Text(possibleSelection))
+		}
 	}
 	if len(buttons) != 0 {
 		rows = append(rows, menu.Row(buttons...))
