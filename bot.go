@@ -43,12 +43,12 @@ func InitBot(cfg Config) *tele.Bot {
 		panic(fmt.Errorf("InitBot: %w", err))
 	}
 
-	inlineMenus := BotExt.NewInlineMenus()
-	fsm := BotExt.NewFiniteStateMachine(DB, inlineMenus)
-	SetupInlineMenus(bot, fsm, inlineMenus)
-	SetupStates(fsm)
-	SetupHandlers(bot, fsm, inlineMenus)
-
+	//inlineMenus := BotExt.NewInlineMenus()
+	//fsm := BotExt.NewFiniteStateMachine(DB, inlineMenus)
+	//SetupInlineMenus(bot, fsm, inlineMenus)
+	//SetupStates(fsm)
+	//SetupHandlers(bot, fsm, inlineMenus)
+	//
 	notificationService.handler = func(userID int64) error {
 		warmupText, err := getRandomCheerup()
 		if err != nil {
@@ -105,7 +105,7 @@ func SetupInlineMenus(bot *tele.Bot, fsm *BotExt.FSM, ims *BotExt.InlineMenusTyp
 		Unique:         "Cancel",
 		TextOnCreation: "Отмена",
 		OnClick: func(c tele.Context) error {
-			BotExt.ResetState(c)
+			BotExt.ResetState(c.Sender().ID)
 			if err := c.Send("OK", MainUserMenu); err != nil {
 				fmt.Println(err)
 			}
@@ -363,7 +363,7 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 			return time, nil
 		},
 		OnClick: func(c tele.Context) error {
-			BotExt.SetStateVar(c, "day", dayUnique)
+			BotExt.SetStateVar(c.Sender().ID, "day", dayUnique)
 			fsm.Trigger(c, NotificationSGSetTime, WarmupNotificationsMenu)
 			return c.Respond()
 		},
