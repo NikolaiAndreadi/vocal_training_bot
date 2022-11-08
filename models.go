@@ -3,12 +3,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var DB *pgxpool.Pool
+var RD *redis.Client
 
 // InitDbConnection creates a Pool of connections to Postgres database. Panics on fail: without database
 // there's nothing to do.
@@ -77,11 +81,26 @@ func createSchema(conn *pgxpool.Pool) {
 
 	CREATE TABLE IF NOT EXISTS warmup_notification_global (
 		user_id			int8	REFERENCES users(user_id),
-		global_switch	bool	NOT NULL DEFAULT false,
-		last_cheerup_id int8	REFERENCES warmup_cheerups(cheerup_id)
+		global_switch	bool	NOT NULL DEFAULT false
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_global__user_id ON warmup_notification_global(user_id);
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_global__global_switch ON warmup_notification_global(global_switch);
+
+	CREATE TABLE IF NOT EXISTS messages (
+	    record_id text, 
+	    message_order serial,
+	    
+	    message_id text NOT NULL,
+	    chat_id int8 NOT NULL,
+	    album_id text,
+	    
+	    message_type varchar(10) NOT NULL,
+	    message_text text,
+	    entity_json text
+	);
+	CREATE INDEX IF NOT EXISTS idx_messages__record_id ON messages(record_id);
+
+
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {
@@ -151,4 +170,65 @@ func getRandomCheerup() (cheerup string, err error) {
 		err = fmt.Errorf("selectRandomCheerup: %w", err)
 	}
 	return
+}
+
+func InitCacheConnection(cfg Config) *redis.Client {
+	rd := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.Host + ":" + cfg.Redis.Port,
+		Password: cfg.Redis.Pass,
+	})
+	if err := rd.Ping().Err(); err != nil {
+		panic(err)
+	}
+	return rd
+}
+
+type UserGroup string
+
+const (
+	UGUser    UserGroup = "USER"
+	UGAdmin             = "ADMIN"
+	UGBanned            = "BANNED"
+	UGNewUser           = ""
+)
+
+func GetUserGroup(userID int64) (UserGroup, error) {
+	strUserID := strconv.FormatInt(userID, 10)
+	if ug, err := RD.Get(strUserID).Result(); err == nil {
+		return UserGroup(ug), nil
+	}
+	// no data in cache - get from postgres
+	var ug string
+	err := DB.QueryRow(context.Background(), `
+		SELECT user_class FROM users
+		WHERE user_id = $1`, userID).Scan(&ug)
+	if err == nil {
+		if rdErr := RD.Set(strUserID, ug, 1*time.Hour).Err(); rdErr != nil {
+			fmt.Println(fmt.Errorf("CheckUserGroup[%d]: can't cache user group", userID))
+		}
+		return UserGroup(ug), nil
+	}
+	if err == pgx.ErrNoRows {
+		if rdErr := RD.Set(strUserID, UGNewUser, 1*time.Hour).Err(); rdErr != nil {
+			fmt.Println(fmt.Errorf("CheckUserGroup[%d]: can't cache user group: %w", userID, rdErr))
+		}
+		return UGNewUser, nil
+	}
+	return UGNewUser, fmt.Errorf("CheckUserGroup[%d] can't fetch UserGroup from pg: %w", userID, err)
+}
+
+func SetUserGroup(userID int64, ug UserGroup) error {
+	_, err := DB.Exec(context.Background(), `
+				UPDATE users
+				SET age = $1
+				WHERE user_id = $2
+				`, string(ug), userID)
+	if err != nil {
+		return fmt.Errorf("SetUserGroup[%d]: can't change UserGroup: %w", userID, err)
+	}
+	// update cache
+	if rdErr := RD.Del(strconv.FormatInt(userID, 10)).Err(); rdErr != nil {
+		fmt.Println(fmt.Errorf("SetUserGroup[%d]: can't invalidaate cache: %w", userID, rdErr))
+	}
+	return nil
 }
