@@ -76,8 +76,6 @@ func createSchema(conn *pgxpool.Pool) {
 		cheerup_id	serial	PRIMARY KEY ,
 		cheerup_txt text	NOT NULL
 	);
-	CREATE INDEX IF NOT EXISTS idx_warmup_cheerups__cheerup_id ON warmup_cheerups(cheerup_id);
-
 
 	CREATE TABLE IF NOT EXISTS warmup_notification_global (
 		user_id			int8	REFERENCES users(user_id),
