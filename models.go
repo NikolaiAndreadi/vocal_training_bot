@@ -88,7 +88,6 @@ func createSchema(conn *pgxpool.Pool) {
 
 	CREATE TABLE IF NOT EXISTS messages (
 	    record_id text, 
-	    message_order serial,
 	    
 	    message_id text NOT NULL,
 	    chat_id int8 NOT NULL,

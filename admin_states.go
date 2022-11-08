@@ -121,7 +121,7 @@ func SendMessages(b *tele.Bot, recordID string) error {
 	rows, err := DB.Query(context.Background(), `
 		SELECT message_id, chat_id, album_id from messages
 		WHERE record_id = $1
-		ORDER BY message_order`, recordID)
+		ORDER BY message_id`, recordID)
 
 	defer rows.Close()
 	if err != nil {
