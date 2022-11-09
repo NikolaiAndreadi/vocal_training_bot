@@ -227,7 +227,7 @@ func GetUserGroup(userID int64) (UserGroup, error) {
 func SetUserGroup(userID int64, ug UserGroup) error {
 	_, err := DB.Exec(context.Background(), `
 				UPDATE users
-				SET age = $1
+				SET user_class= $1
 				WHERE user_id = $2
 				`, string(ug), userID)
 	if err != nil {
