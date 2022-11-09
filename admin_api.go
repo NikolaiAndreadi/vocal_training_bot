@@ -1,11 +1,9 @@
 package main
 
 import (
-	"strconv"
-	"time"
-
 	"vocal_training_bot/BotExt"
 
+	"github.com/google/uuid"
 	"golang.org/x/exp/slices"
 	tele "gopkg.in/telebot.v3"
 )
@@ -53,9 +51,7 @@ func onText(c tele.Context) error {
 	switch c.Text() {
 	case "Разослать сообщения пользователям":
 		userID := c.Sender().ID
-		recordID := strconv.FormatInt(userID, 10) +
-			strconv.FormatInt(time.Now().UTC().Unix(), 10)
-		BotExt.SetStateVar(userID, "RecordID", recordID)
+		BotExt.SetStateVar(userID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGRecordMessage)
 		return nil
 	}

@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/google/uuid v1.1.2
 	github.com/jackc/pgx/v5 v5.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	golang.org/x/exp v0.0.0-20221026004748-78e5e7837ae6

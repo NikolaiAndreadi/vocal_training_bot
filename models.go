@@ -85,7 +85,7 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_global__global_switch ON warmup_notification_global(global_switch);
 
 	CREATE TABLE IF NOT EXISTS messages (
-	    record_id text, 
+	    record_id uuid, 
 	    
 	    message_id text NOT NULL,
 	    chat_id int8 NOT NULL,
@@ -97,7 +97,17 @@ func createSchema(conn *pgxpool.Pool) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_messages__record_id ON messages(record_id);
 
-
+	CREATE TABLE IF NOT EXISTS warmup_groups (
+	    warmup_group	serial	PRIMARY KEY, 
+	    group_name		text
+	);
+	CREATE TABLE IF NOT EXISTS warmups (
+	    warmup_id		serial	PRIMARY KEY,
+	    warmup_group	int		REFERENCES warmup_groups(warmup_group),
+	    warmup_name		text,
+	    price			int2	CHECK (price >= 0) DEFAULT 0,
+	    record_id		uuid    -- REFERENCES messages(record_id)
+	);
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {

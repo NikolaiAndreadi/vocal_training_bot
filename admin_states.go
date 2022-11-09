@@ -89,7 +89,7 @@ func RecordMessage(c tele.Context) error {
 
 	_, err := DB.Exec(context.Background(), `
 		INSERT INTO messages (record_id, message_id, chat_id, album_id, message_type, message_text, entity_json)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		VALUES ($1 :: uuid, $2, $3, $4, $5, $6, $7)`,
 		recordID, messageID, chatID, albumID, mediaType, messageText, mediaJSON)
 	if err != nil {
 		return fmt.Errorf("RecordMessage[%d]: cannot update database, %w", userID, err)
