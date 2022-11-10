@@ -80,7 +80,7 @@ func onUserText(c tele.Context) error {
 
 func sendAboutMe(c tele.Context) error {
 	_ = c.Send("Меня зовут Юля. Я учу вокалу. Этот бот поможет тебе достичь высот в этом деле")
-	_ = c.Send("Мой инстаграм: [@vershkovaaa](https://www.instagram.com/vershkovaaa/)", tele.ModeMarkdownV2)
-	_ = c.Send("Мой тикток: [@vershkovaaa](https://www.tiktok.com/@vershkovaaa)", tele.ModeMarkdownV2)
+	_ = c.Send("Мой инстаграм: [@vershkovaaa](https://www.instagram.com/vershkovaaa/)", tele.ModeMarkdownV2, tele.NoPreview)
+	_ = c.Send("Мой тикток: [@vershkovaaa](https://www.tiktok.com/@vershkovaaa)", tele.ModeMarkdownV2, tele.NoPreview)
 	return nil
 }
