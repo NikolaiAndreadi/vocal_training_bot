@@ -10,15 +10,11 @@ import (
 
 	"vocal_training_bot/BotExt"
 
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	tele "gopkg.in/telebot.v3"
-)
-
-var (
-	experienceAllowedAnswers = []string{"без опыта", "менее 1 года", "1-2 года", "2-3 года", "3-5 лет", "более 5 лет"}
-	experienceReplyMenu      = BotExt.ReplyMenuConstructor(experienceAllowedAnswers, 2, true)
 )
 
 const (
@@ -41,6 +37,8 @@ const (
 	SettingsSGSetExperience = "SettingsStateGroup_SetExperience"
 
 	NotificationSGSetTime = "NotificationStateGroup_SetTime"
+
+	WannabeStudentSGSendReq = "WannabeStudentSG_SendReq"
 )
 
 func SetupUserStates(fsm *BotExt.FSM) {
@@ -219,6 +217,16 @@ func SetupUserStates(fsm *BotExt.FSM) {
 	if err != nil {
 		panic(err)
 	}
+
+	err = fsm.RegisterOneShotState(&BotExt.State{
+		Name:           WannabeStudentSGSendReq,
+		OnTrigger:      "Хочешь стать учеником? Я с тобой свяжусь! Как с тобой лучше связаться?",
+		OnTriggerExtra: []interface{}{wannabeStudentMenu},
+		Validator:      wannabeStudentValidator,
+		Manipulator:    wannabeStudentManipulator,
+		OnSuccess:      "Готово!",
+		OnSuccessExtra: []interface{}{MainUserMenu},
+	})
 }
 
 var (
@@ -398,5 +406,56 @@ func saveSurveyRegisterUser(c tele.Context) error {
 	}
 
 	err = initUserDBs(c.Sender().ID)
+	return err
+}
+
+func wannabeStudentValidator(c tele.Context) string {
+	t := c.Text()
+	if t == "" && c.Message().ReplyTo != nil {
+		if c.Message().ReplyTo.Sender.ID != c.Bot().Me.ID {
+			return "Нажми на кнопку 'Позвонить' чтобы поделиться своим контактом"
+		}
+		if c.Message().Contact != nil {
+			return "" // handle contact
+		}
+	}
+	if t == "Отмена" || t == "Написать в личку в телеграм" {
+		return ""
+	}
+	return "Не могу распознать ответ... Выбери вариант из списка"
+}
+
+func wannabeStudentManipulator(c tele.Context) error {
+	if c.Text() == "Отмена" {
+		return nil
+	}
+	userID := c.Sender().ID
+	phone := ""
+	userName := c.Sender().Username
+
+	if c.Text() != "Написать в личку в телеграм" {
+		phone = c.Message().Contact.PhoneNumber
+	}
+
+	var resolved bool
+	err := DB.QueryRow(context.Background(), `
+	SELECT resolved FROM wannabe_student
+	WHERE user_id = $1`, userID).Scan(&resolved)
+	if err != pgx.ErrNoRows {
+		if resolved == true {
+			_ = c.Send("Вы уже подавали заявку и ее рассмотрели... Напиши, пожалуйста, напрямую @vershkovaaa для записи на занятие")
+			return nil
+		}
+		if resolved == false {
+			_ = c.Send("Заявка уже подана, ее рассмотрят в ближайшее время!")
+			return nil
+		}
+		return err
+	}
+
+	_, err = DB.Exec(context.Background(), `
+	INSERT INTO wannabe_student(user_id, user_name, phone_num)
+	VALUES ($1, $2, $3)
+	`, userID, userName, phone)
 	return err
 }

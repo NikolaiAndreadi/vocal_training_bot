@@ -25,6 +25,7 @@ func setupUserHandlers(b *tele.Bot) {
 	userGroup.Use(UserFilterMiddleware)
 	userGroup.Handle("/start", onUserStart)
 	userGroup.Handle(tele.OnText, onUserText)
+	userGroup.Handle(tele.OnContact, onUserText)
 
 	SetupUserStates(userFSM)
 	SetupUserMenuHandlers(b)
@@ -58,9 +59,19 @@ func onUserText(c tele.Context) error {
 	case "Напоминания":
 		return userInlineMenus.Show(c, WarmupNotificationsMenu)
 	case "Записаться на урок":
+		userFSM.Trigger(c, WannabeStudentSGSendReq)
+		return nil
 	case "Обо мне":
+		return sendAboutMe(c)
 	case "Настройки аккаунта":
 		return userInlineMenus.Show(c, AccountSettingsMenu)
 	}
+	return nil
+}
+
+func sendAboutMe(c tele.Context) error {
+	_ = c.Send("Меня зовут Юля. Я учу вокалу. Этот бот поможет тебе достичь высот в этом деле")
+	_ = c.Send("Мой инстаграм: [@vershkovaaa](https://www.instagram.com/vershkovaaa/)", tele.ModeMarkdownV2)
+	_ = c.Send("Мой тикток: [@vershkovaaa](https://www.tiktok.com/@vershkovaaa)", tele.ModeMarkdownV2)
 	return nil
 }

@@ -25,6 +25,13 @@ const (
 	WarmupNotificationsMenu = "WarmupNotificationsMenu"
 )
 
+var (
+	experienceAllowedAnswers = []string{"без опыта", "менее 1 года", "1-2 года", "2-3 года", "3-5 лет", "более 5 лет"}
+	experienceReplyMenu      = BotExt.ReplyMenuConstructor(experienceAllowedAnswers, 2, true)
+
+	wannabeStudentMenu = &tele.ReplyMarkup{ResizeKeyboard: true}
+)
+
 func SetupUserMenuHandlers(bot *tele.Bot) {
 	cancelButton := &BotExt.InlineButtonTemplate{
 		Unique:         "Cancel",
@@ -37,6 +44,12 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 			return c.Respond()
 		},
 	}
+
+	wannabeStudentMenu.Reply(
+		wannabeStudentMenu.Row(wannabeStudentMenu.Text("Написать в личку в телеграм")),
+		wannabeStudentMenu.Row(wannabeStudentMenu.Contact("Позвонить")),
+		wannabeStudentMenu.Row(wannabeStudentMenu.Text("Отмена")),
+	)
 
 	im := BotExt.NewInlineMenu(
 		AccountSettingsMenu,

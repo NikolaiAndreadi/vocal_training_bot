@@ -53,6 +53,13 @@ func createSchema(conn *pgxpool.Pool) {
 		PRIMARY KEY (user_id)
 	);
 
+	CREATE TABLE IF NOT EXISTS wannabe_student (
+	    user_id		int8	REFERENCES users(user_id),
+	    user_name   text    NOT NULL,
+	    phone_num	text,
+	    resolved	bool 	DEFAULT false
+	);
+
 	CREATE TABLE IF NOT EXISTS states (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		state			text,
