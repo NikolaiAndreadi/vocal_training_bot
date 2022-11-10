@@ -71,7 +71,8 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 				"experience": xp,
 			}
 			return data, nil
-		})
+		},
+	)
 	AccountSettingsIM.AddButtons([]*BotExt.InlineButtonTemplate{
 		{
 			Unique: "ChangeName",
