@@ -33,6 +33,12 @@ var (
 )
 
 func SetupUserMenuHandlers(bot *tele.Bot) {
+	wannabeStudentMenu.Reply(
+		wannabeStudentMenu.Row(wannabeStudentMenu.Text("Написать в личку в телеграм")),
+		wannabeStudentMenu.Row(wannabeStudentMenu.Contact("Позвонить")),
+		wannabeStudentMenu.Row(wannabeStudentMenu.Text("Отмена")),
+	)
+
 	cancelButton := &BotExt.InlineButtonTemplate{
 		Unique:         "Cancel",
 		TextOnCreation: "Отмена",
@@ -45,13 +51,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 		},
 	}
 
-	wannabeStudentMenu.Reply(
-		wannabeStudentMenu.Row(wannabeStudentMenu.Text("Написать в личку в телеграм")),
-		wannabeStudentMenu.Row(wannabeStudentMenu.Contact("Позвонить")),
-		wannabeStudentMenu.Row(wannabeStudentMenu.Text("Отмена")),
-	)
-
-	im := BotExt.NewInlineMenu(
+	AccountSettingsIM := BotExt.NewInlineMenu(
 		AccountSettingsMenu,
 		"Текущие настройки: нажми на пункт, чтобы изменить",
 		1,
@@ -72,7 +72,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 			}
 			return data, nil
 		})
-	im.AddButtons([]*BotExt.InlineButtonTemplate{
+	AccountSettingsIM.AddButtons([]*BotExt.InlineButtonTemplate{
 		{
 			Unique: "ChangeName",
 			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
@@ -145,12 +145,12 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 		},
 		cancelButton,
 	})
-	err := userInlineMenus.RegisterMenu(bot, im)
+	err := userInlineMenus.RegisterMenu(bot, AccountSettingsIM)
 	if err != nil {
 		panic(err)
 	}
 
-	im = BotExt.NewInlineMenu(
+	warmupNotificationIM := BotExt.NewInlineMenu(
 		WarmupNotificationsMenu,
 		"Настройки напоминаний о распевках:",
 		2,
@@ -163,7 +163,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 	fri := NotificationButtonFabric(userFSM, userInlineMenus, "fri", "Пятница")
 	sat := NotificationButtonFabric(userFSM, userInlineMenus, "sat", "Суббота")
 	sun := NotificationButtonFabric(userFSM, userInlineMenus, "sun", "Воскресенье")
-	im.AddButtons([]*BotExt.InlineButtonTemplate{
+	warmupNotificationIM.AddButtons([]*BotExt.InlineButtonTemplate{
 		mon[0], mon[1],
 		tue[0], tue[1],
 		wed[0], wed[1],
@@ -208,7 +208,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 			}},
 		cancelButton,
 	})
-	err = userInlineMenus.RegisterMenu(bot, im)
+	err = userInlineMenus.RegisterMenu(bot, warmupNotificationIM)
 	if err != nil {
 		panic(err)
 	}
