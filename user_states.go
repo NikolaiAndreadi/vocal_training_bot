@@ -43,7 +43,7 @@ const (
 	NotificationSGSetTime = "NotificationStateGroup_SetTime"
 )
 
-func SetupStates(fsm *BotExt.FSM) {
+func SetupUserStates(fsm *BotExt.FSM) {
 	err := fsm.RegisterStateChain([]*BotExt.State{
 		{
 			Name:        SurveySGStartSurveyReqName,

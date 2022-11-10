@@ -18,7 +18,6 @@ func main() {
 	notificationService = NewNotificationService(RD, 10*time.Second)
 
 	b := InitBot(cfg)
-	setupAdminHandlers(b)
 
 	err := notificationService.RebuildQueue()
 	if err != nil {
