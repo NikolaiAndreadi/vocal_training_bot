@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"vocal_training_bot/BotExt"
 
 	tele "gopkg.in/telebot.v3"
@@ -26,9 +28,15 @@ func setupUserHandlers(b *tele.Bot) {
 	userGroup.Handle("/start", onUserStart)
 	userGroup.Handle(tele.OnText, onUserText)
 	userGroup.Handle(tele.OnContact, onUserText)
+	userGroup.Handle(tele.OnCallback, OnInlineResult)
 
 	SetupUserStates(userFSM)
 	SetupUserMenuHandlers(b)
+}
+
+func OnInlineResult(c tele.Context) error {
+	fmt.Println("hi")
+	return nil
 }
 
 func onUserStart(c tele.Context) error {
@@ -56,6 +64,7 @@ func onUserText(c tele.Context) error {
 
 	switch c.Text() {
 	case "Распевки":
+		return nil
 	case "Напоминания":
 		return userInlineMenus.Show(c, WarmupNotificationsMenu)
 	case "Записаться на урок":

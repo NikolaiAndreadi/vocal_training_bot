@@ -150,6 +150,9 @@ func (im *InlineMenu) Update(c tele.Context, msgID string) {
 }
 
 func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
+	if im.dataFetcher == nil {
+		return im.menuCarcass
+	}
 	dynamicContentMap, err := im.dataFetcher(c)
 	if err != nil {
 		fmt.Println(fmt.Errorf("InlineMenu.bake[%d]:can't fetch data from database: %w", c.Sender().ID, err))
@@ -176,10 +179,14 @@ func (im *InlineMenu) manageButton(b *tele.Bot, button *InlineButtonTemplate) te
 	if !ok {
 		staticText = "-" // empty string is not allowed
 	}
-	bakedButton := im.menuCarcass.Data(staticText, button.Unique, "\f"+button.Unique)
-
-	b.Handle(&bakedButton, button.OnClick)
-
+	var bakedButton tele.Btn
+	switch t := button.OnClick.(type) {
+	case func(tele.Context) error:
+		bakedButton = im.menuCarcass.Data(staticText, button.Unique, "\f"+button.Unique)
+		b.Handle(&bakedButton, t)
+	case string:
+		bakedButton = im.menuCarcass.Data(staticText, t, t)
+	}
 	return bakedButton
 }
 
@@ -195,6 +202,6 @@ const RowSplitterButton = "__SPLITTER__"
 type InlineButtonTemplate struct {
 	Unique         string
 	TextOnCreation interface{}
-	OnClick        tele.HandlerFunc
+	OnClick        interface{} // string or tele.HandlerFunc
 	belongsToMenu  *InlineMenu
 }
