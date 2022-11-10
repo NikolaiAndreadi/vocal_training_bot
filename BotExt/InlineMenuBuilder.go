@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	om "github.com/wk8/go-ordered-map"
+	om "github.com/wk8/go-ordered-map/v2"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -65,7 +65,7 @@ type InlineMenuTextSetter func(tele.Context, map[string]string) (string, error)
 
 // DataFetcher is a type for extracting dynamic content from database
 type DataFetcher func(c tele.Context) (map[string]string, error)
-type ButtonFetcher func(c tele.Context) (om.OrderedMap, error)
+type ButtonFetcher func(c tele.Context) (*om.OrderedMap[string, string], error)
 
 // InlineMenu is an abstraction to construct both static and dynamic content into inline buttons.
 // Name - unique id of menu, used to modify content of buttons
@@ -121,9 +121,9 @@ func (im *InlineMenu) UpdateButtons(c tele.Context) error {
 	im.PurgeButtons()
 	for pair := btnMap.Oldest(); pair != nil; pair = pair.Next() {
 		im.AddButton(&InlineButtonTemplate{
-			Unique:         pair.Key.(string),
-			TextOnCreation: pair.Value.(string),
-			OnClick:        pair.Value.(string),
+			Unique:         pair.Key,
+			TextOnCreation: pair.Value,
+			OnClick:        pair.Value,
 		})
 	}
 

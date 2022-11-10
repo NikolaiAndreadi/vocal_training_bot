@@ -6,6 +6,7 @@ import (
 
 	"vocal_training_bot/BotExt"
 
+	om "github.com/wk8/go-ordered-map/v2"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -23,6 +24,7 @@ var (
 const (
 	AccountSettingsMenu     = "AccountSettingsMenu"
 	WarmupNotificationsMenu = "WarmupNotificationsMenu"
+	WarmupGroupsMenu        = "WarmupGroupsMenu"
 )
 
 var (
@@ -213,6 +215,17 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 	if err != nil {
 		panic(err)
 	}
+
+	warmupGroupsIM := BotExt.NewDynamicInlineMenu(
+		"Категории распевок",
+		WarmupGroupsMenu,
+		1,
+		warmupGroupsFetcher,
+	)
+	err = userInlineMenus.RegisterMenu(bot, warmupGroupsIM)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func WarmupNotificationsMenuDataFetcher(c tele.Context) (map[string]string, error) {
@@ -308,4 +321,9 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 		},
 	}
 	return
+}
+
+func warmupGroupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
+	omap := om.New[string, string]()
+	return omap, nil
 }

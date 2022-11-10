@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.1.2
 	github.com/jackc/pgx/v5 v5.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/wk8/go-ordered-map v1.0.0
+	github.com/wk8/go-ordered-map/v2 v2.0.0
 	golang.org/x/exp v0.0.0-20221026004748-78e5e7837ae6
 	golang.org/x/text v0.4.0
 	gopkg.in/telebot.v3 v3.1.2
@@ -16,6 +16,7 @@ require (
 )
 
 require (
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/puddle/v2 v2.0.0 // indirect
