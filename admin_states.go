@@ -15,6 +15,7 @@ import (
 
 const (
 	AdminSGRecordMessage = "AdminSG_RecordMessage"
+	AdminSGRecordCheerup = "AdminSG_RecordCheerup"
 )
 
 func SetupAdminStates() {
@@ -28,6 +29,52 @@ func SetupAdminStates() {
 	if err != nil {
 		panic(err)
 	}
+
+	err = adminFSM.RegisterOneShotState(&BotExt.State{
+		Name: AdminSGRecordCheerup,
+		OnTrigger: `Начни писать одно или несколько сообщений. Когда закончишь - просто напиши слово 'СТОП', подбадривание будет сохранено.
+Если надо отменить запись сообщений - напиши 'ОТМЕНА'`,
+		Manipulator: RecordCheerup,
+		OnSuccess:   "DONE!",
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func RecordCheerup(c tele.Context) error {
+	userID := c.Sender().ID
+	recordID, ok := BotExt.GetStateVar(userID, "RecordID")
+	if !ok {
+		return fmt.Errorf("RecordMessage[%d]: no RecordID in database", userID)
+	}
+
+	if c.Text() == "СТОП" {
+		_, err := DB.Exec(context.Background(), `
+		INSERT INTO warmup_cheerups (record_id)
+		VALUES ($1 :: uuid)`, recordID)
+		if err != nil {
+			return fmt.Errorf("RecordCheerup[%d]: cannot update database, %w", userID, err)
+		}
+		return nil
+	}
+
+	if c.Text() == "ОТМЕНА" {
+		_, err := DB.Exec(context.Background(), `
+		DELETE FROM messages 
+		WHERE record_id = $1`, recordID)
+		if err != nil {
+			return fmt.Errorf("RecordCheerup[%d]: cannot delete record, %w", userID, err)
+		}
+		return nil
+	}
+
+	err := saveMessageToDBandDisk(c, userID, recordID)
+	if err != nil {
+		return fmt.Errorf("RecordMessage: %w", err)
+	}
+
+	return BotExt.ContinueState
 }
 
 func RecordMessage(c tele.Context) error {
@@ -38,6 +85,9 @@ func RecordMessage(c tele.Context) error {
 	}
 
 	if c.Text() == "СТОП" {
+		if err := c.Send("Отправка сообщений..."); err != nil {
+			fmt.Println(fmt.Errorf("RecordMessage[%d]: can't send message: %w", userID, err))
+		}
 		return SendMessages(c.Bot(), recordID)
 	}
 
@@ -51,6 +101,14 @@ func RecordMessage(c tele.Context) error {
 		return nil
 	}
 
+	err := saveMessageToDBandDisk(c, userID, recordID)
+	if err != nil {
+		return fmt.Errorf("RecordMessage: %w", err)
+	}
+	return BotExt.ContinueState
+}
+
+func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error {
 	msg := c.Message()
 	messageID, chatID, albumID := strconv.Itoa(msg.ID), msg.Chat.ID, msg.AlbumID
 
@@ -72,7 +130,7 @@ func RecordMessage(c tele.Context) error {
 		mediaJSONTmp, err := json.Marshal(mediaFile)
 		mediaJSON = mediaJSONTmp
 		if err != nil {
-			fmt.Println(fmt.Errorf("RecordMessage[%d]: cannot unmarshal json, %w", userID, err))
+			fmt.Println(fmt.Errorf("saveMessageToDBandDisk[%d]: cannot unmarshal json, %w", userID, err))
 		}
 
 		fileName := "./message_storage/" + mediaFile.UniqueID
@@ -80,7 +138,7 @@ func RecordMessage(c tele.Context) error {
 		if _, err := os.Stat(fileName); errors.Is(err, os.ErrNotExist) {
 			err = c.Bot().Download(mediaFile, fileName)
 			if err != nil {
-				fmt.Println(fmt.Errorf("RecordMessage[%d]: cannot save message, %w", userID, err))
+				fmt.Println(fmt.Errorf("saveMessageToDBandDisk[%d]: cannot save message, %w", userID, err))
 			}
 		} else {
 			fmt.Println("exists")
@@ -92,9 +150,9 @@ func RecordMessage(c tele.Context) error {
 		VALUES ($1 :: uuid, $2, $3, $4, $5, $6, $7)`,
 		recordID, messageID, chatID, albumID, mediaType, messageText, mediaJSON)
 	if err != nil {
-		return fmt.Errorf("RecordMessage[%d]: cannot update database, %w", userID, err)
+		return fmt.Errorf("saveMessageToDBandDisk[%d]: cannot update database, %w", userID, err)
 	}
-	return BotExt.ContinueState
+	return nil
 }
 
 func checkOrCreateStorageFolder() {

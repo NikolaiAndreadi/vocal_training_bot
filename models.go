@@ -71,11 +71,6 @@ func createSchema(conn *pgxpool.Pool) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__user_id ON warmup_notifications(user_id);
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_timings__switch ON warmup_notifications(trigger_switch);
-	
-	CREATE TABLE IF NOT EXISTS warmup_cheerups (
-		cheerup_id	serial	PRIMARY KEY ,
-		cheerup_txt text	NOT NULL
-	);
 
 	CREATE TABLE IF NOT EXISTS warmup_notification_global (
 		user_id			int8	REFERENCES users(user_id),
@@ -97,6 +92,11 @@ func createSchema(conn *pgxpool.Pool) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_messages__record_id ON messages(record_id);
 
+	CREATE TABLE IF NOT EXISTS warmup_cheerups (
+		cheerup_id	serial	PRIMARY KEY,
+		record_id	uuid	-- REFERENCES messages(record_id) MATCH SIMPLE
+	);
+
 	CREATE TABLE IF NOT EXISTS warmup_groups (
 	    warmup_group	serial	PRIMARY KEY, 
 	    group_name		text
@@ -106,7 +106,7 @@ func createSchema(conn *pgxpool.Pool) {
 	    warmup_group	int		REFERENCES warmup_groups(warmup_group),
 	    warmup_name		text,
 	    price			int2	CHECK (price >= 0) DEFAULT 0,
-	    record_id		uuid    -- REFERENCES messages(record_id)
+	    record_id		uuid    -- REFERENCES messages(record_id) MATCH SIMPLE 
 	);
 	`
 
@@ -167,12 +167,12 @@ func initUserDBs(userID int64) error {
 	return nil
 }
 
-func getRandomCheerup() (cheerup string, err error) {
+func getRandomCheerup() (recordID string, err error) {
 	// TODO prevent repetition (with warmup_notification_global.last_cheerup_id)
 	err = DB.QueryRow(context.Background(), `
-		SELECT cheerup_txt from warmup_cheerups
+		SELECT record_id from warmup_cheerups
 		ORDER BY RANDOM()
-		LIMIT 1`).Scan(&cheerup)
+		LIMIT 1`).Scan(&recordID)
 	if err != nil {
 		err = fmt.Errorf("selectRandomCheerup: %w", err)
 	}

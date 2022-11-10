@@ -9,7 +9,6 @@ import (
 	"vocal_training_bot/BotExt"
 
 	"github.com/google/uuid"
-	"golang.org/x/exp/slices"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -54,25 +53,36 @@ func onStart(c tele.Context) error {
 
 func onText(c tele.Context) error {
 	switch c.Text() {
-	case "Разослать сообщения пользователям":
+	case "Отправить сообщения пользователям":
 		userID := c.Sender().ID
 		BotExt.SetStateVar(userID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGRecordMessage)
 		return nil
+
 	case "Забанить, Сделать админом":
 		err := sendUserList(c)
 		if err != nil {
 			return err
 		}
-		return c.Send(`Выбери из списка человека, 
-нажми на него, 
-выбери ⬅Reply из меню, 
-в качестве текста напиши 'бан', 'админ' или 'юзер'
-чтобы изменить группу пользователя`)
-	}
-	if slices.Contains(MainAdminMenuOptions, c.Text()) {
+		return c.Send("Выбери из списка человека, \n" +
+			"нажми на него,\n" +
+			"выбери ⬅Reply из меню,\n" +
+			"в качестве текста напиши 'бан', 'админ' или 'юзер'\n" +
+			"чтобы изменить группу пользователя`)")
+
+	case "Группы распевок":
+		return nil
+	case "Добавить распевку":
+		return nil
+	case "Добавить подбадривание":
+		userID := c.Sender().ID
+		BotExt.SetStateVar(userID, "RecordID", uuid.New().String())
+		adminFSM.Trigger(c, AdminSGRecordCheerup)
+		return nil
+	case "Кто нажал на 'Стать учеником'?":
 		return nil
 	}
+
 	err, ok := handleUserGroupChange(c)
 	if ok {
 		return err
@@ -126,10 +136,14 @@ func sendUserList(c tele.Context) error {
 }
 
 func handleUserGroupChange(c tele.Context) (error, bool) {
-	if c.Message().ReplyTo.Sender.ID != c.Bot().Me.ID {
+	replyTo := c.Message().ReplyTo
+	if replyTo == nil {
 		return nil, false
 	}
-	replyText := c.Message().ReplyTo.Text
+	if replyTo.Sender.ID != c.Bot().Me.ID {
+		return nil, false
+	}
+	replyText := replyTo.Text
 	if replyText == "" {
 		return nil, false
 	}
