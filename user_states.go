@@ -74,7 +74,7 @@ func SetupUserStates(fsm *BotExt.FSM) {
 			Manipulator:    saveSurveyRegisterUser,
 			OnTriggerExtra: []interface{}{experienceReplyMenu},
 			OnSuccess:      "Спасибо! Ты зарегистрирован в системе бота и теперь тебе доступна его функциональность!",
-			OnSuccessExtra: []interface{}{MainUserMenu},
+			OnQuitExtra:    []interface{}{MainUserMenu},
 		},
 	})
 	if err != nil {
@@ -172,8 +172,8 @@ func SetupUserStates(fsm *BotExt.FSM) {
 				`, c.Text(), c.Sender().ID)
 			return
 		},
-		OnSuccess:      "Опыт вокала изменен",
-		OnSuccessExtra: []interface{}{MainUserMenu},
+		OnSuccess:   "Опыт вокала изменен",
+		OnQuitExtra: []interface{}{MainUserMenu},
 	})
 	if err != nil {
 		panic(err)
@@ -225,7 +225,7 @@ func SetupUserStates(fsm *BotExt.FSM) {
 		Validator:      wannabeStudentValidator,
 		Manipulator:    wannabeStudentManipulator,
 		OnSuccess:      "Готово!",
-		OnSuccessExtra: []interface{}{MainUserMenu},
+		OnQuitExtra:    []interface{}{MainUserMenu},
 	})
 }
 

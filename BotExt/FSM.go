@@ -96,8 +96,8 @@ type State struct {
 	OnTrigger      interface{}
 	OnTriggerExtra []interface{}
 
-	OnSuccess      interface{}
-	OnSuccessExtra []interface{}
+	OnSuccess   interface{}
+	OnQuitExtra []interface{}
 
 	fsm         *FSM
 	menus       *InlineMenusType
@@ -139,7 +139,13 @@ func (s *State) Update(c tele.Context) {
 			if err == ContinueState {
 				return
 			}
-			err2 := c.Send("Что-то пошло не так... Мы будем разбираться, в чем была проблема. Попробуй повторить это действие позже!")
+			text := "Что-то пошло не так... Мы будем разбираться, в чем была проблема. Попробуй повторить это действие позже!"
+			var err2 error
+			if s.OnQuitExtra != nil {
+				err2 = c.Send(text, s.OnQuitExtra)
+			} else {
+				err2 = c.Send(text)
+			}
 			if err2 != nil {
 				fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send a manipulator message: %w", s.Name, c.Sender().ID, err))
 			}
@@ -160,10 +166,10 @@ func (s *State) Update(c tele.Context) {
 
 	if s.OnSuccess != nil {
 		var err error
-		if s.OnSuccessExtra == nil {
+		if s.OnQuitExtra == nil {
 			err = c.Send(s.OnSuccess)
 		} else {
-			err = c.Send(s.OnSuccess, s.OnSuccessExtra...)
+			err = c.Send(s.OnSuccess, s.OnQuitExtra...)
 		}
 		if err != nil {
 			fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send success message: %w", s.Name, c.Sender().ID, err))
