@@ -341,5 +341,9 @@ func warmupGroupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error)
 		omap.Set(unique, text)
 	}
 
+	if omap.Len() == 0 {
+		return nil, c.Send("Пока в этом разделе пусто... Скоро тут будет много интересного!")
+	}
+
 	return omap, nil
 }
