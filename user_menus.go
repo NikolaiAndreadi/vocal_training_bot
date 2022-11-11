@@ -325,7 +325,7 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 
 func warmupGroupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
 	rows, err := DB.Query(context.Background(), `
-	SELECT warmup_group :: text, group_name FROM warmup_groups`)
+	SELECT warmup_group_id :: text, group_name FROM warmup_groups`)
 	defer rows.Close()
 	if err != nil {
 		return nil, fmt.Errorf("warmupGroupsFetcher: can't fetch database: %w", err)
