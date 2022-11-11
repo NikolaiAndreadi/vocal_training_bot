@@ -33,6 +33,7 @@ func (f *FSM) RegisterStateChain(states []*State) error {
 			return fmt.Errorf("RegisterStateChain: state %s already registered", s.Name)
 		}
 		s.fsm = f
+		s.menus = f.menus
 		f.stateMap[s.Name] = s
 		// fill next
 		if i != 0 {
@@ -49,6 +50,7 @@ func (f *FSM) RegisterOneShotState(s *State) error {
 		return fmt.Errorf("RegisterOneShotState: state %s already registered", s.Name)
 	}
 	s.fsm = f
+	s.menus = f.menus
 	f.stateMap[s.Name] = s
 	return nil
 }
@@ -75,6 +77,10 @@ func (f *FSM) Update(c tele.Context) {
 		fmt.Println(fmt.Errorf("BotExt.Update[%d]: stateName '%s' from database is corrupted", c.Sender().ID, stateName))
 	}
 	state.Update(c)
+}
+
+func (f *FSM) GetCurrentState(c tele.Context) string {
+	return getState(c.Sender().ID)
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,7 +119,17 @@ func (s *State) Trigger(c tele.Context) {
 	if s.OnTriggerExtra == nil {
 		err = c.Send(s.OnTrigger)
 	} else {
-		err = c.Send(s.OnTrigger, s.OnTriggerExtra...)
+		if len(s.OnTriggerExtra) == 1 {
+			switch ote := s.OnTriggerExtra[0].(type) {
+			case string:
+				_ = c.Send(s.OnTrigger)
+				err = s.menus.Show(c, ote)
+			default:
+				err = c.Send(s.OnTrigger, ote)
+			}
+		} else {
+			err = c.Send(s.OnTrigger, s.OnTriggerExtra...)
+		}
 	}
 	if err != nil {
 		fmt.Println(fmt.Errorf("state %s.Trigger[%d]: can't send a message: %w", s.Name, c.Sender().ID, err))
