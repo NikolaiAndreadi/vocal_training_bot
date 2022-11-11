@@ -195,7 +195,7 @@ func (im *InlineMenu) Update(c tele.Context, msgID string) {
 		ChatID:    c.Chat().ID,
 	}
 	_, err := c.Bot().Edit(msg, im.header, menu)
-	if (err != nil) || (err != tele.ErrSameMessageContent) {
+	if (err != nil) && (err != tele.ErrSameMessageContent) {
 		fmt.Println(fmt.Errorf("InlineMenu.Update[%d]: can't update menu '%s' to messageID %s: %w",
 			c.Sender().ID, im.Name, msgID, err))
 	}
