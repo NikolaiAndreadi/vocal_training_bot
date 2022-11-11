@@ -107,8 +107,8 @@ func NewDynamicInlineMenu(menuName, menuHeader string, maxButtonsInRow int, fetc
 	}
 }
 
-// UpdateButtons uses buttonFetcher to extract buttons from database. key - id, value - name
-func (im *InlineMenu) UpdateButtons(c tele.Context) error {
+// dynamicBake uses buttonFetcher to extract buttons from database. key - id, value - name
+func (im *InlineMenu) dynamicBake(c tele.Context) error {
 	if im.buttonFetcher == nil {
 		return nil
 	}
@@ -192,7 +192,7 @@ func (im *InlineMenu) Update(c tele.Context, msgID string) {
 		ChatID:    c.Chat().ID,
 	}
 	_, err := c.Bot().Edit(msg, im.header, menu)
-	if err != nil {
+	if (err != nil) || (err != tele.ErrSameMessageContent) {
 		fmt.Println(fmt.Errorf("InlineMenu.Update[%d]: can't update menu '%s' to messageID %s: %w",
 			c.Sender().ID, im.Name, msgID, err))
 	}
@@ -200,6 +200,10 @@ func (im *InlineMenu) Update(c tele.Context, msgID string) {
 
 func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 	if im.dataFetcher == nil {
+		err := im.dynamicBake(c)
+		if err != nil {
+			fmt.Println(fmt.Errorf("InlineMenu.Update: cant dynamicBake: %w", err))
+		}
 		return im.menuCarcass
 	}
 	dynamicContentMap, err := im.dataFetcher(c)
@@ -234,7 +238,7 @@ func (im *InlineMenu) manageButton(b *tele.Bot, button *InlineButtonTemplate) te
 		bakedButton = im.menuCarcass.Data(staticText, button.Unique, "\f"+button.Unique)
 		b.Handle(&bakedButton, t)
 	case string:
-		bakedButton = im.menuCarcass.Data(staticText, t, t)
+		bakedButton = im.menuCarcass.Data(t, button.Unique, im.Name)
 	}
 	return bakedButton
 }

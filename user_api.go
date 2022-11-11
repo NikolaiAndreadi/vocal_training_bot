@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"vocal_training_bot/BotExt"
 
@@ -35,8 +36,15 @@ func setupUserHandlers(b *tele.Bot) {
 }
 
 func OnInlineResult(c tele.Context) error {
-	fmt.Println("hi")
-	return nil
+	callback := c.Callback()
+	triggeredMenu := callback.Message.Text
+	triggeredData := strings.Split(callback.Data[1:len(callback.Data)], "|") // 1st - special callback symbol /f
+	triggeredID := triggeredData[0]
+	triggeredItem := triggeredData[1]
+	fmt.Println(triggeredMenu)
+	fmt.Println(triggeredID)
+	fmt.Println(triggeredItem)
+	return c.Respond()
 }
 
 func onUserStart(c tele.Context) error {
@@ -64,7 +72,7 @@ func onUserText(c tele.Context) error {
 
 	switch c.Text() {
 	case "Распевки":
-		return nil
+		return userInlineMenus.Show(c, WarmupGroupsMenu)
 	case "Напоминания":
 		return userInlineMenus.Show(c, WarmupNotificationsMenu)
 	case "Записаться на урок":

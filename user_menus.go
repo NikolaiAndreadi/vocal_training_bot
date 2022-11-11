@@ -217,8 +217,8 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 	}
 
 	warmupGroupsIM := BotExt.NewDynamicInlineMenu(
-		"Категории распевок",
 		WarmupGroupsMenu,
+		"Категории распевок",
 		1,
 		warmupGroupsFetcher,
 	)
@@ -235,10 +235,10 @@ func WarmupNotificationsMenuDataFetcher(c tele.Context) (map[string]string, erro
     				cast(trigger_switch AS varchar(5)), 
        				to_char(trigger_time,'HH24:MI')
 				FROM warmup_notifications WHERE user_id = $1`, c.Sender().ID)
+	defer rows.Close()
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 	data := make(map[string]string)
 	var dayName, daySwitch, notificationTime string
 	for rows.Next() {
@@ -324,6 +324,22 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 }
 
 func warmupGroupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
+	rows, err := DB.Query(context.Background(), `
+	SELECT warmup_group :: text, group_name FROM warmup_groups`)
+	defer rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("warmupGroupsFetcher: can't fetch database: %w", err)
+	}
 	omap := om.New[string, string]()
+
+	var unique, text string
+	for rows.Next() {
+		err = rows.Scan(&unique, &text)
+		if err != nil {
+			return omap, fmt.Errorf("warmupGroupsFetcher: can't fetch row: %w", err)
+		}
+		omap.Set(unique, text)
+	}
+
 	return omap, nil
 }
