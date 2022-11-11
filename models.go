@@ -54,10 +54,11 @@ func createSchema(conn *pgxpool.Pool) {
 	);
 
 	CREATE TABLE IF NOT EXISTS wannabe_student (
-	    user_id		int8	REFERENCES users(user_id),
-	    user_name   text    NOT NULL,
+	    user_id		int8		REFERENCES users(user_id),
+	    user_name   text    	NOT NULL,
 	    phone_num	text,
-	    resolved	bool 	DEFAULT false
+	    resolved	bool 		DEFAULT false,
+	    created		timestamp	DEFAULT now()
 	);
 
 	CREATE TABLE IF NOT EXISTS states (
