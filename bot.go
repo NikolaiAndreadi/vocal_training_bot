@@ -41,12 +41,20 @@ func InitBot(cfg Config) *tele.Bot {
 	setupUserHandlers(bot)
 
 	notificationService.handler = func(userID int64) error {
-		warmupText, err := getRandomCheerup()
+		_, err = bot.Send(UserIDType{userID}, "❗ НАПОМИНАНИЕ ❗ Пришло время делать распевку")
+		if err != nil {
+			return err
+		}
+
+		warmupID, err := getRandomCheerup()
 		if err != nil {
 			return fmt.Errorf("notificationService.handler: %w", err)
 		}
-		_, sendErr := bot.Send(UserIDType{userID}, warmupText)
-		return sendErr
+
+		if warmupID != "" {
+			return SendMessageToUser(bot, userID, warmupID)
+		}
+		return nil
 	}
 
 	return bot

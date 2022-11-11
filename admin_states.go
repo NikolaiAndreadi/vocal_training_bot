@@ -406,3 +406,43 @@ func SendMessages(b *tele.Bot, recordID string) error {
 	}
 	return nil
 }
+
+func SendMessageToUser(b *tele.Bot, userID int64, recordID string) error {
+	rows, err := DB.Query(context.Background(), `
+		SELECT message_id, chat_id, album_id from messages
+		WHERE record_id = $1
+		ORDER BY message_id`, recordID)
+
+	defer rows.Close()
+	if err != nil {
+		return fmt.Errorf("SendMessageToUser[recordID = %s]: pg messages query error %w", recordID, err)
+	}
+
+	var BakedMessage []message
+	var lastAlbum string
+	var msg message
+
+	for rows.Next() {
+		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID)
+		if err != nil {
+			return fmt.Errorf("SendMessageToUser[recordID = %s]: messages row scan error %w", recordID, err)
+		}
+		if msg.albumID == "" {
+			BakedMessage = append(BakedMessage, msg)
+			continue
+		}
+		if msg.albumID == lastAlbum {
+			continue
+		}
+		BakedMessage = append(BakedMessage, msg)
+	}
+
+	for _, bm := range BakedMessage {
+		_, err = b.Copy(UserIDType{userID}, bm)
+		if err != nil {
+			return fmt.Errorf("SendMessages[recordID = %s]: sending message error for user [%d]: %w",
+				recordID, userID, err)
+		}
+	}
+	return nil
+}
