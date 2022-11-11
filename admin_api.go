@@ -63,11 +63,11 @@ func onText(c tele.Context) error {
 			"чтобы изменить группу пользователя`)")
 
 	case "Группы распевок":
-		err := adminInlineMenus.Show(c, warmupGroupAdminMenu)
+		err := adminInlineMenus.Show(c, warmupGroupAddGroupMenu)
 		if err != nil {
 			return err
 		}
-		return adminInlineMenus.Show(c, warmupGroupAddGroupMenu)
+		return adminInlineMenus.Show(c, warmupGroupAdminMenu)
 	case "Добавить распевку":
 		return nil
 	case "Добавить подбадривание":
@@ -109,7 +109,7 @@ func OnAdminInlineResult(c tele.Context) error {
 		}
 		return fmt.Errorf("OnAdminInlineResult: %s: can't parse userID", wannabeStudentResolutionMenu)
 	case warmupGroupAdminMenu:
-		BotExt.SetStateVar(callback.Sender.ID, "warmupGroupToRename", triggeredID)
+		BotExt.SetStateVar(c.Sender().ID, "warmupGroupToRename", triggeredID)
 		adminFSM.Trigger(c, AdminSGRenameWarmupGroup)
 	}
 
