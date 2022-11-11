@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"vocal_training_bot/BotExt"
 
@@ -14,8 +15,10 @@ import (
 )
 
 const (
-	AdminSGRecordMessage = "AdminSG_RecordMessage"
-	AdminSGRecordCheerup = "AdminSG_RecordCheerup"
+	AdminSGRecordMessage     = "AdminSG_RecordMessage"
+	AdminSGRecordCheerup     = "AdminSG_RecordCheerup"
+	AdminSGAddGroupMenu      = "AdminSG_AddGroupMenu"
+	AdminSGRenameWarmupGroup = "AdminSG_RenameWarmupGroup"
 )
 
 func SetupAdminStates() {
@@ -40,6 +43,72 @@ func SetupAdminStates() {
 	if err != nil {
 		panic(err)
 	}
+
+	err = adminFSM.RegisterOneShotState(&BotExt.State{
+		Name:      AdminSGAddGroupMenu,
+		OnTrigger: `Введи название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
+		Validator: func(c tele.Context) string {
+			if len(c.Text()) >= 50 {
+				return "Название группы слишком длинное!"
+			}
+			return ""
+		},
+		Manipulator: AddWarmupGroup,
+		OnSuccess:   "DONE!",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	err = adminFSM.RegisterOneShotState(&BotExt.State{
+		Name:      AdminSGRenameWarmupGroup,
+		OnTrigger: `Введи новое название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
+		Validator: func(c tele.Context) string {
+			if len(c.Text()) >= 50 {
+				return "Название группы слишком длинное!"
+			}
+			return ""
+		},
+		Manipulator: RenameWarmupGroup,
+		OnSuccess:   "DONE!",
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func AddWarmupGroup(c tele.Context) error {
+	if strings.ToLower(c.Text()) == "отмена" {
+		return nil
+	}
+
+	_, err := DB.Exec(context.Background(), `
+	INSERT INTO warmup_groups (group_name)
+	VALUES ($1)`, c.Text())
+	if err != nil {
+		return fmt.Errorf("AddWarmupGroup: %w", err)
+	}
+	return nil
+}
+
+func RenameWarmupGroup(c tele.Context) error {
+	if strings.ToLower(c.Text()) == "отмена" {
+		return nil
+	}
+
+	groupID, ok := BotExt.GetStateVar(c.Sender().ID, "warmupGroupToRename")
+	if !ok {
+		return fmt.Errorf("RenameWarmupGroup: can't find state var warmupGroupToRename")
+	}
+	_, err := DB.Exec(context.Background(), `
+	UPDATE warmup_groups
+	SET group_name = $1
+	WHERE warmup_group_id = $2
+	`, c.Text(), groupID)
+	if err != nil {
+		return fmt.Errorf("AddWarmupGroup: %w", err)
+	}
+	return nil
 }
 
 func RecordCheerup(c tele.Context) error {
