@@ -15,6 +15,19 @@ func (u UserIDType) Recipient() string {
 	return strconv.FormatInt(u.UserID, 10)
 }
 
+func InitAdminBot(cfg Config) *tele.Bot {
+	teleCfg := tele.Settings{
+		Token: cfg.AdminBot.Token,
+	}
+	bot, err := tele.NewBot(teleCfg)
+	if err != nil {
+		panic(fmt.Errorf("InitAdminBot: %w", err))
+	}
+	bot.Use(Whitelist(UGAdmin))
+	setupAdminHandlers(bot)
+	return bot
+}
+
 func InitBot(cfg Config) *tele.Bot {
 	teleCfg := tele.Settings{
 		Token: cfg.Bot.Token,
@@ -26,7 +39,6 @@ func InitBot(cfg Config) *tele.Bot {
 	bot.Use(Blacklist(UGBanned))
 
 	setupUserHandlers(bot)
-	setupAdminHandlers(bot)
 
 	notificationService.handler = func(userID int64) error {
 		warmupText, err := getRandomCheerup()

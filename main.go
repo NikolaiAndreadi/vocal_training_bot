@@ -17,7 +17,8 @@ func main() {
 	RD = InitCacheConnection(cfg)
 	notificationService = NewNotificationService(RD, 10*time.Second)
 
-	b := InitBot(cfg)
+	userBot := InitBot(cfg)
+	adminBot := InitAdminBot(cfg)
 
 	err := notificationService.RebuildQueue()
 	if err != nil {
@@ -25,5 +26,7 @@ func main() {
 	}
 
 	notificationService.Start()
-	b.Start()
+
+	go adminBot.Start()
+	userBot.Start()
 }
