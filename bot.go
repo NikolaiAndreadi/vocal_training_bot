@@ -36,7 +36,7 @@ func InitBot(cfg Config) *tele.Bot {
 	if err != nil {
 		panic(fmt.Errorf("InitBot: %w", err))
 	}
-	bot.Use(Whitelist(UGUser))
+	bot.Use(Blacklist(UGBanned))
 
 	setupUserHandlers(bot)
 
