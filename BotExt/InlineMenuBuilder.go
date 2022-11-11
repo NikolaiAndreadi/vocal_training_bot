@@ -120,15 +120,14 @@ func (im *InlineMenu) dynamicBake(c tele.Context) error {
 
 	im.PurgeButtons()
 
-	if btnMap == nil {
-		return nil
-	}
-	for pair := btnMap.Oldest(); pair != nil; pair = pair.Next() {
-		im.AddButton(&InlineButtonTemplate{
-			Unique:         pair.Key,
-			TextOnCreation: pair.Value,
-			OnClick:        pair.Value,
-		})
+	if btnMap != nil {
+		for pair := btnMap.Oldest(); pair != nil; pair = pair.Next() {
+			im.AddButton(&InlineButtonTemplate{
+				Unique:         pair.Key,
+				TextOnCreation: pair.Value,
+				OnClick:        pair.Value,
+			})
+		}
 	}
 
 	im.construct(c.Bot())
