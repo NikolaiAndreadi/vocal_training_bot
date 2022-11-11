@@ -14,28 +14,17 @@ var (
 	userFSM         = BotExt.NewFiniteStateMachine(userInlineMenus)
 )
 
-func UserFilterMiddleware(next tele.HandlerFunc) tele.HandlerFunc {
-	return func(c tele.Context) error {
-		if ug, _ := GetUserGroup(c.Sender().ID); ug == UGUser {
-			return next(c)
-		}
-		return nil
-	}
-}
-
 func setupUserHandlers(b *tele.Bot) {
-	userGroup := b.Group()
-	userGroup.Use(UserFilterMiddleware)
-	userGroup.Handle("/start", onUserStart)
-	userGroup.Handle(tele.OnText, onUserText)
-	userGroup.Handle(tele.OnContact, onUserText)
-	userGroup.Handle(tele.OnCallback, OnInlineResult)
+	b.Handle("/start", onUserStart)
+	b.Handle(tele.OnText, onUserText)
+	b.Handle(tele.OnContact, onUserText)
+	b.Handle(tele.OnCallback, OnUserInlineResult)
 
 	SetupUserStates(userFSM)
 	SetupUserMenuHandlers(b)
 }
 
-func OnInlineResult(c tele.Context) error {
+func OnUserInlineResult(c tele.Context) error {
 	callback := c.Callback()
 	triggeredMenu := callback.Message.Text
 	triggeredData := strings.Split(callback.Data[1:len(callback.Data)], "|") // 1st - special callback symbol /f

@@ -12,15 +12,6 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-func AdminFilterMiddleware(next tele.HandlerFunc) tele.HandlerFunc {
-	return func(c tele.Context) error {
-		if ug, _ := GetUserGroup(c.Sender().ID); ug == UGAdmin {
-			return next(c)
-		}
-		return nil
-	}
-}
-
 var (
 	adminInlineMenus = BotExt.NewInlineMenus()
 	adminFSM         = BotExt.NewFiniteStateMachine(adminInlineMenus)
@@ -28,10 +19,11 @@ var (
 
 func setupAdminHandlers(b *tele.Bot) {
 	adminGroup := b.Group()
-	adminGroup.Use(AdminFilterMiddleware)
+	adminGroup.Use(Whitelist(UGAdmin))
 	adminGroup.Handle("/start", onStart)
 	adminGroup.Handle(tele.OnText, onText)
 	adminGroup.Handle(tele.OnMedia, onMedia)
+	adminGroup.Handle(tele.OnCallback, OnUserInlineResult)
 
 	SetupAdminStates()
 	SetupAdminMenuHandlers(b)
@@ -80,7 +72,7 @@ func onText(c tele.Context) error {
 		adminFSM.Trigger(c, AdminSGRecordCheerup)
 		return nil
 	case "Кто нажал на 'Стать учеником'?":
-		return nil
+		return adminInlineMenus.Show(c, wannabeStudentResolutionMenu)
 	}
 
 	err, ok := handleUserGroupChange(c)
