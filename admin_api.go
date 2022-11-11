@@ -23,7 +23,7 @@ func setupAdminHandlers(b *tele.Bot) {
 	adminGroup.Handle("/start", onStart)
 	adminGroup.Handle(tele.OnText, onText)
 	adminGroup.Handle(tele.OnMedia, onMedia)
-	adminGroup.Handle(tele.OnCallback, OnUserInlineResult)
+	adminGroup.Handle(tele.OnCallback, OnAdminInlineResult)
 
 	SetupAdminStates()
 	SetupAdminMenuHandlers(b)
@@ -92,15 +92,57 @@ func onMedia(c tele.Context) error {
 	return nil
 }
 
-//params := map[string]string{
-//"chat_id": strconv.FormatInt(c.Sender().ID, 10),
-//
-//"phone_number": "+79153303033",
-//"first_name":   "pupok",
-//}
-//
-//_, err := c.Bot().Raw("sendContact", params)
-//return err
+func OnAdminInlineResult(c tele.Context) error {
+	callback := c.Callback()
+	triggeredData := strings.Split(callback.Data[1:len(callback.Data)], "|") // 1st - special callback symbol /f
+	triggeredID := triggeredData[0]
+	triggeredItem := triggeredData[1]
+
+	switch triggeredItem {
+	case wannabeStudentResolutionMenu:
+		if userID, err := strconv.ParseInt(triggeredID, 10, 64); err == nil {
+			return resolveWannabeStudent(c, userID)
+		}
+		return fmt.Errorf("OnAdminInlineResult: %s: can't parse userID", wannabeStudentResolutionMenu)
+	}
+
+	return c.Respond()
+}
+
+func resolveWannabeStudent(c tele.Context, userID int64) error {
+	var userName, userPhone, createdDate string
+	err := DB.QueryRow(context.Background(), `
+	SELECT user_name, phone_num, created::date::text FROM wannabe_student
+	WHERE user_id = $1`, userID).Scan(&userName, &userPhone, &createdDate)
+	if err != nil {
+		return fmt.Errorf("resolveWannabeStudent: can't query row: %w", err)
+	}
+
+	text := fmt.Sprintf("@%s оставил(a) заявку %s", userName, createdDate)
+	err = c.Send(text)
+	if err != nil {
+		return err
+	}
+	if userPhone != "" {
+		params := map[string]string{
+			"chat_id":      strconv.FormatInt(c.Sender().ID, 10),
+			"phone_number": userPhone,
+			"first_name":   userName,
+		}
+		_, err = c.Bot().Raw("sendContact", params)
+		if err != nil {
+			return err
+		}
+		_ = c.Send("Пользователь просил позвонить по телефону")
+	}
+
+	_, err = DB.Exec(context.Background(), `
+	UPDATE wannabe_student
+	SET resolved = true
+	WHERE user_id = $1`, userID)
+
+	return err
+}
 
 func sendUserList(c tele.Context) error {
 	rows, err := DB.Query(context.Background(), `
