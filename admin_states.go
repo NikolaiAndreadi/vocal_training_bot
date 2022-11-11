@@ -19,6 +19,11 @@ const (
 	AdminSGRecordCheerup     = "AdminSG_RecordCheerup"
 	AdminSGAddGroupMenu      = "AdminSG_AddGroupMenu"
 	AdminSGRenameWarmupGroup = "AdminSG_RenameWarmupGroup"
+
+	AdminSGAddWarmup        = "AdminSG_AddWarmup"
+	AdminSGWarmupSetName    = "AdminSG_WarmupSetName"
+	AdminSGWarmupSetPrice   = "AdminSG_WarmupSetPrice"
+	AdminSGWarmupSetContent = "AdminSG_WarmupSetContent"
 )
 
 func SetupAdminStates() {
@@ -26,7 +31,7 @@ func SetupAdminStates() {
 		Name: AdminSGRecordMessage,
 		OnTrigger: `Начни писать одно или несколько сообщений. Когда закончишь - просто напиши слово 'СТОП' - и сообщение отправится всем пользователям.
 Если надо отменить запись сообщений напиши 'ОТМЕНА'`,
-		Manipulator: RecordMessage,
+		Manipulator: RecordOneTimeMessage,
 		OnSuccess:   "DONE!",
 	})
 	if err != nil {
@@ -45,14 +50,9 @@ func SetupAdminStates() {
 	}
 
 	err = adminFSM.RegisterOneShotState(&BotExt.State{
-		Name:      AdminSGAddGroupMenu,
-		OnTrigger: `Введи название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
-		Validator: func(c tele.Context) string {
-			if len(c.Text()) >= 50 {
-				return "Название группы слишком длинное!"
-			}
-			return ""
-		},
+		Name:        AdminSGAddGroupMenu,
+		OnTrigger:   `Введи название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
+		Validator:   nameMax50Validator,
 		Manipulator: AddWarmupGroup,
 		OnSuccess:   "DONE!",
 	})
@@ -75,6 +75,66 @@ func SetupAdminStates() {
 	if err != nil {
 		panic(err)
 	}
+
+	err = adminFSM.RegisterStateChain([]*BotExt.State{
+		{
+			Name:           AdminSGAddWarmup,
+			OnTrigger:      "В какую группу поместить распевку?",
+			OnTriggerExtra: []interface{}{warmupGroupAdminMenu},
+			Validator: func(c tele.Context) string {
+				_, ok := BotExt.GetStateVar(c.Sender().ID, "selectedWarmupGroup")
+				if !ok {
+					return "Выбери группу из списка!"
+				}
+				return ""
+			},
+		},
+		{
+			Name:      AdminSGWarmupSetName,
+			OnTrigger: "Как будет называться распевка? Макс 50 символов",
+			Validator: nameMax50Validator,
+			Manipulator: func(c tele.Context) error {
+				BotExt.SetStateVar(c.Sender().ID, "WarmupName", c.Text())
+				return nil
+			},
+		},
+		{
+			Name:      AdminSGWarmupSetPrice,
+			OnTrigger: "Сколько будет стоить распевка? Цена в рублях, без копеек!",
+			Validator: priceValidator,
+			Manipulator: func(c tele.Context) error {
+				BotExt.SetStateVar(c.Sender().ID, "WarmupPrice", c.Text())
+				return nil
+			},
+		},
+		{
+			Name:        AdminSGWarmupSetContent,
+			OnTrigger:   "Напиши содержание распевки. Как закончишь - напиши СТОП",
+			Manipulator: RecordWarmup,
+			OnSuccess:   "Успех! Распевка сохранена!",
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+}
+
+func nameMax50Validator(c tele.Context) string {
+	if len(c.Text()) >= 50 {
+		return "Название группы слишком длинное!"
+	}
+	return ""
+}
+
+func priceValidator(c tele.Context) string {
+	price, err := strconv.Atoi(c.Text())
+	if err != nil {
+		return "Тут должно быть неотрицательное число!"
+	}
+	if price < 0 {
+		return "Тут должно быть неотрицательное число!"
+	}
+	return ""
 }
 
 func AddWarmupGroup(c tele.Context) error {
@@ -96,9 +156,9 @@ func RenameWarmupGroup(c tele.Context) error {
 		return nil
 	}
 
-	groupID, ok := BotExt.GetStateVar(c.Sender().ID, "warmupGroupToRename")
+	groupID, ok := BotExt.GetStateVar(c.Sender().ID, "selectedWarmupGroup")
 	if !ok {
-		return fmt.Errorf("RenameWarmupGroup: can't find state var warmupGroupToRename")
+		return fmt.Errorf("RenameWarmupGroup: can't find state var selectedWarmupGroup")
 	}
 	_, err := DB.Exec(context.Background(), `
 	UPDATE warmup_groups
@@ -115,7 +175,7 @@ func RecordCheerup(c tele.Context) error {
 	userID := c.Sender().ID
 	recordID, ok := BotExt.GetStateVar(userID, "RecordID")
 	if !ok {
-		return fmt.Errorf("RecordMessage[%d]: no RecordID in database", userID)
+		return fmt.Errorf("RecordCheerup[%d]: no RecordID in database", userID)
 	}
 
 	if c.Text() == "СТОП" {
@@ -140,22 +200,70 @@ func RecordCheerup(c tele.Context) error {
 
 	err := saveMessageToDBandDisk(c, userID, recordID)
 	if err != nil {
-		return fmt.Errorf("RecordMessage: %w", err)
+		return fmt.Errorf("RecordCheerup: %w", err)
 	}
 
 	return BotExt.ContinueState
 }
 
-func RecordMessage(c tele.Context) error {
+func RecordWarmup(c tele.Context) error {
 	userID := c.Sender().ID
 	recordID, ok := BotExt.GetStateVar(userID, "RecordID")
 	if !ok {
-		return fmt.Errorf("RecordMessage[%d]: no RecordID in database", userID)
+		return fmt.Errorf("RecordWarmup[%d]: no RecordID in database", userID)
+	}
+
+	if c.Text() == "СТОП" {
+		values := BotExt.GetStateVars(userID)
+		warmupGroup, ok := values["selectedWarmupGroup"]
+		if !ok {
+			return fmt.Errorf("RecordWarmup[%d]: can't fetch selectedWarmupGroup", userID)
+		}
+		warmupName, ok := values["WarmupName"]
+		if !ok {
+			return fmt.Errorf("RecordWarmup[%d]: can't fetch WarmupName", userID)
+		}
+		warmupPrice, ok := values["WarmupPrice"]
+		if !ok {
+			return fmt.Errorf("RecordWarmup[%d]: can't fetch WarmupPrice", userID)
+		}
+		_, err := DB.Exec(context.Background(), `
+		INSERT INTO warmups (warmup_group, warmup_name, price, record_id)
+		VALUES ($1::int, $2, $3::int2, $4::uuid)`, warmupGroup, warmupName, warmupPrice, recordID)
+		if err != nil {
+			return fmt.Errorf("RecordWarmup[%d]: cannot update database, %w", userID, err)
+		}
+		return nil
+	}
+
+	if c.Text() == "ОТМЕНА" {
+		_, err := DB.Exec(context.Background(), `
+		DELETE FROM messages 
+		WHERE record_id = $1`, recordID)
+		if err != nil {
+			return fmt.Errorf("RecordWarmup[%d]: cannot delete record, %w", userID, err)
+		}
+		return nil
+	}
+
+	err := saveMessageToDBandDisk(c, userID, recordID)
+	if err != nil {
+		return fmt.Errorf("RecordWarmup: %w", err)
+	}
+
+	return BotExt.ContinueState
+}
+
+func RecordOneTimeMessage(c tele.Context) error {
+	userID := c.Sender().ID
+	recordID, ok := BotExt.GetStateVar(userID, "RecordID")
+	if !ok {
+		return fmt.Errorf("RecordOneTimeMessage[%d]: no RecordID in database", userID)
 	}
 
 	if c.Text() == "СТОП" {
 		if err := c.Send("Отправка сообщений..."); err != nil {
-			fmt.Println(fmt.Errorf("RecordMessage[%d]: can't send message: %w", userID, err))
+			fmt.Println(fmt.Errorf("RecordOneTimeMessage[%d]: can't send message: %w", userID, err))
 		}
 		return SendMessages(c.Bot(), recordID)
 	}
@@ -165,14 +273,14 @@ func RecordMessage(c tele.Context) error {
 		DELETE FROM messages 
 		WHERE record_id = $1`, recordID)
 		if err != nil {
-			return fmt.Errorf("RecordMessage[%d]: cannot delete record, %w", userID, err)
+			return fmt.Errorf("RecordOneTimeMessage[%d]: cannot delete record, %w", userID, err)
 		}
 		return nil
 	}
 
 	err := saveMessageToDBandDisk(c, userID, recordID)
 	if err != nil {
-		return fmt.Errorf("RecordMessage: %w", err)
+		return fmt.Errorf("RecordOneTimeMessage: %w", err)
 	}
 	return BotExt.ContinueState
 }

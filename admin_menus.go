@@ -30,7 +30,7 @@ func SetupAdminMenuHandlers(b *tele.Bot) {
 
 	warmupGroupAdminIM := BotExt.NewDynamicInlineMenu(
 		warmupGroupAdminMenu,
-		"Существующие группы распевок. Нажми на название чтобы переименовать",
+		"Существующие группы распевок:",
 		1,
 		warmupGroupAdminFetcher,
 	)
