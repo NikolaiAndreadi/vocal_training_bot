@@ -1,4 +1,4 @@
 .idea
 .idea/*
-./message_storage/*
+/message_storage/*
 config.yml
