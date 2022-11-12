@@ -214,6 +214,10 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 		fmt.Println(fmt.Errorf("InlineMenu.bake[%d]:can't fetch data from database: %w", c.Sender().ID, err))
 	}
 
+	if dynamicContentMap == nil {
+		return im.menuCarcass
+	}
+
 	for i, row := range im.menuCarcass.InlineKeyboard {
 		for j, btn := range row {
 			f, ok := im.textSetters[btn.Unique]
