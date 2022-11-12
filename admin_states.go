@@ -358,12 +358,12 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 	media := msg.Media()
 	mediaType := "text"
 	var mediaJSON []byte
+	var err error
 	if media != nil {
 		mediaType = media.MediaType()
 
 		mediaFile := media.MediaFile()
-		mediaJSONTmp, err := json.Marshal(mediaFile)
-		mediaJSON = mediaJSONTmp
+		mediaJSON, err = json.Marshal(mediaFile)
 		if err != nil {
 			fmt.Println(fmt.Errorf("saveMessageToDBandDisk[%d]: cannot unmarshal json, %w", userID, err))
 		}
@@ -380,7 +380,7 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 		}
 	}
 
-	_, err := DB.Exec(context.Background(), `
+	_, err = DB.Exec(context.Background(), `
 		INSERT INTO messages (record_id, message_id, chat_id, album_id, message_type, message_text, entity_json)
 		VALUES ($1 :: uuid, $2, $3, $4, $5, $6, $7)`,
 		recordID, messageID, chatID, albumID, mediaType, messageText, mediaJSON)

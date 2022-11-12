@@ -88,15 +88,15 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE INDEX IF NOT EXISTS idx_warmup_notification_global__global_switch ON warmup_notification_global(global_switch);
 
 	CREATE TABLE IF NOT EXISTS messages (
-	    record_id uuid, 
+	    record_id		uuid, 
 	    
-	    message_id text NOT NULL,
-	    chat_id int8 NOT NULL,
-	    album_id text,
+	    message_id		text		NOT NULL,
+	    chat_id			int8		NOT NULL,
+	    album_id		text,
 	    
-	    message_type varchar(10) NOT NULL,
-	    message_text text,
-	    entity_json text
+	    message_type	varchar(10) NOT NULL,
+	    message_text	text,
+	    entity_json		text
 	);
 	CREATE INDEX IF NOT EXISTS idx_messages__record_id ON messages(record_id);
 
