@@ -119,10 +119,14 @@ func OnAdminInlineResult(c tele.Context) error {
 			adminFSM.Update(c)
 			return c.Respond()
 		}
+		if adminFSM.GetCurrentState(c) == ChangeWarmupSetGroup {
+			adminFSM.Update(c)
+			return c.Respond()
+		}
 		adminFSM.Trigger(c, AdminSGRenameWarmupGroup)
 	case changeWarmupMenu:
 		BotExt.SetStateVar(c.Sender().ID, "selectedWarmup", triggeredID)
-		///////////////// TODO: SHOW possiblle changes: group,name, price with inline menu. From that -> one shot FSM
+		adminInlineMenus.Show(c, changeWarmupParamsMenu)
 	}
 
 	return c.Respond()

@@ -59,7 +59,7 @@ func HasState(UserID int64) bool {
 
 func ResetState(userID int64) {
 	setState(userID, NoState)
-	clearStateVars(userID)
+	//clearStateVars(userID)
 }
 
 ///////////////////////////////////////////////// STATE VARIABLES FUNCTIONS

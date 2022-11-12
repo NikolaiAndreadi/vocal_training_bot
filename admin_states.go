@@ -24,6 +24,10 @@ const (
 	AdminSGWarmupSetName    = "AdminSG_WarmupSetName"
 	AdminSGWarmupSetPrice   = "AdminSG_WarmupSetPrice"
 	AdminSGWarmupSetContent = "AdminSG_WarmupSetContent"
+
+	ChangeWarmupSetGroup = "changeWarmupSetGroup"
+	ChangeWarmupSetName  = "ChangeWarmupSetName"
+	ChangeWarmupSetPrice = "ChangeWarmupSetPrice"
 )
 
 func SetupAdminStates() {
@@ -75,6 +79,60 @@ func SetupAdminStates() {
 	if err != nil {
 		panic(err)
 	}
+
+	err = adminFSM.RegisterOneShotState(&BotExt.State{
+		Name:           ChangeWarmupSetGroup,
+		OnTrigger:      "В какую группу поместить распевку?",
+		OnTriggerExtra: []interface{}{warmupGroupAdminMenu},
+		Validator: func(c tele.Context) string {
+			_, ok := BotExt.GetStateVar(c.Sender().ID, "selectedWarmupGroup")
+			if !ok {
+				return "Выбери группу из списка!"
+			}
+			return ""
+		},
+		Manipulator: func(c tele.Context) error {
+			warmupGroup, _ := BotExt.GetStateVar(c.Sender().ID, "selectedWarmupGroup")
+			warmupID, _ := BotExt.GetStateVar(c.Sender().ID, "selectedWarmup")
+			_, err = DB.Exec(context.Background(), `
+				UPDATE warmups
+				SET warmup_group = $1
+				WHERE warmup_id = $2
+			`, warmupGroup, warmupID)
+			return err
+		},
+		OnSuccess: "Готово!",
+	})
+
+	err = adminFSM.RegisterOneShotState(&BotExt.State{
+		Name:      ChangeWarmupSetName,
+		OnTrigger: "Новое имя?",
+		Validator: nameMax50Validator,
+		Manipulator: func(c tele.Context) error {
+			warmupID, _ := BotExt.GetStateVar(c.Sender().ID, "selectedWarmup")
+			_, err = DB.Exec(context.Background(), `
+				UPDATE warmups
+				SET warmup_name = $1
+				WHERE warmup_id = $2
+			`, c.Text(), warmupID)
+			return err
+		},
+	})
+
+	err = adminFSM.RegisterOneShotState(&BotExt.State{
+		Name:      ChangeWarmupSetPrice,
+		OnTrigger: "Новая цена?",
+		Validator: priceValidator,
+		Manipulator: func(c tele.Context) error {
+			warmupID, _ := BotExt.GetStateVar(c.Sender().ID, "selectedWarmup")
+			_, err = DB.Exec(context.Background(), `
+				UPDATE warmups
+				SET price = $1
+				WHERE warmup_id = $2
+			`, c.Text(), warmupID)
+			return err
+		},
+	})
 
 	err = adminFSM.RegisterStateChain([]*BotExt.State{
 		{

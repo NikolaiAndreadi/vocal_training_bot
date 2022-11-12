@@ -14,6 +14,8 @@ const (
 	wannabeStudentResolutionMenu = "wannabeStudentResolutionMenu"
 	warmupGroupAdminMenu         = "warmupGroupAdminMenu"
 	warmupGroupAddGroupMenu      = "warmupGroupAddGroupMenu"
+	changeWarmupMenu             = "changeWarmupMenu"
+	changeWarmupParamsMenu       = "changeWarmupParamsMenu"
 )
 
 func SetupAdminMenuHandlers(b *tele.Bot) {
@@ -35,6 +37,72 @@ func SetupAdminMenuHandlers(b *tele.Bot) {
 		warmupGroupAdminFetcher,
 	)
 	err = adminInlineMenus.RegisterMenu(b, warmupGroupAdminIM)
+	if err != nil {
+		panic(err)
+	}
+
+	changeWarmupIM := BotExt.NewDynamicInlineMenu(
+		changeWarmupMenu,
+		"Список существующих распевок:",
+		1,
+		warmupListFetcher,
+	)
+	err = adminInlineMenus.RegisterMenu(b, changeWarmupIM)
+	if err != nil {
+		panic(err)
+	}
+
+	changeWarmupParamsIM := BotExt.NewInlineMenu(
+		changeWarmupParamsMenu,
+		"Параметры для изменения",
+		1,
+		warmupParamsFetcher,
+	)
+	changeWarmupParamsIM.AddButtons([]*BotExt.InlineButtonTemplate{
+		{
+			Unique: "ChangeWarmupGroup",
+			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["warmupGroup"]
+				if !ok {
+					return "Группа неизвестна", fmt.Errorf("can't fetch warmupGroup")
+				}
+				return "Группа: " + s, nil
+			},
+			OnClick: func(c tele.Context) error {
+				adminFSM.Trigger(c, ChangeWarmupSetGroup, changeWarmupParamsMenu)
+				return c.Respond()
+			},
+		},
+		{
+			Unique: "ChangeWarmupName",
+			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["warmupName"]
+				if !ok {
+					return "Название неизвестно", fmt.Errorf("can't fetch warmupName")
+				}
+				return "Название: " + s, nil
+			},
+			OnClick: func(c tele.Context) error {
+				adminFSM.Trigger(c, ChangeWarmupSetName, changeWarmupParamsMenu)
+				return c.Respond()
+			},
+		},
+		{
+			Unique: "ChangeWarmupPrice",
+			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["warmupPrice"]
+				if !ok {
+					return "Цена неизвестна", fmt.Errorf("can't fetch warmupPrice")
+				}
+				return "Цена: " + s, nil
+			},
+			OnClick: func(c tele.Context) error {
+				adminFSM.Trigger(c, ChangeWarmupSetPrice, changeWarmupParamsMenu)
+				return c.Respond()
+			},
+		},
+	})
+	err = adminInlineMenus.RegisterMenu(b, changeWarmupParamsIM)
 	if err != nil {
 		panic(err)
 	}
@@ -113,4 +181,55 @@ func warmupGroupAdminFetcher(c tele.Context) (*om.OrderedMap[string, string], er
 	}
 
 	return omap, nil
+}
+
+func warmupListFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
+	rows, err := DB.Query(context.Background(), `
+	SELECT warmup_id, warmup_name FROM warmups
+	ORDER BY warmup_group`)
+	defer rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("warmupListFetcher: can't fetch database: %w", err)
+	}
+	omap := om.New[string, string]()
+
+	var warmupID, warmupName string
+
+	for rows.Next() {
+		err = rows.Scan(&warmupID, &warmupName)
+		if err != nil {
+			return omap, fmt.Errorf("warmupListFetcher: can't fetch row: %w", err)
+		}
+		omap.Set(warmupID, warmupName)
+	}
+
+	if omap.Len() == 0 {
+		return nil, c.Send("Пока распевок нет")
+	}
+
+	return omap, nil
+}
+
+func warmupParamsFetcher(c tele.Context) (map[string]string, error) {
+	userID := c.Sender().ID
+	warmupID, ok := BotExt.GetStateVar(userID, "selectedWarmup")
+	if !ok {
+		return nil, fmt.Errorf("warmupParamsFetcher[%d]: can't fetch selectedWarmup", userID)
+	}
+
+	var warmupGroup, warmupName, warmupPrice string
+	err := DB.QueryRow(context.Background(), `
+	SELECT group_name, warmup_name, price::text FROM warmups
+	INNER JOIN warmup_groups ON warmups.warmup_group = warmup_groups.warmup_group_id                                                    
+	WHERE warmup_id = $1`, warmupID).Scan(&warmupGroup, &warmupName, &warmupPrice)
+	if err != nil {
+		return nil, fmt.Errorf("warmupParamsFetcher[%d]: can't fetch %s warmup data: %w", userID, warmupID, err)
+	}
+
+	out := make(map[string]string)
+	out["warmupGroup"] = warmupGroup
+	out["warmupName"] = warmupName
+	out["warmupPrice"] = warmupPrice
+
+	return out, nil
 }
