@@ -139,9 +139,22 @@ func onUserText(c tele.Context) error {
 }
 
 func sendAboutMe(c tele.Context) error {
-	_ = c.Send("Меня зовут Юля. Я учу вокалу. Этот бот поможет тебе достичь высот в этом деле")
-	_ = c.Send("Мой инстаграм: [@vershkovaaa](https://www.instagram.com/vershkovaaa/)", tele.ModeMarkdownV2, tele.NoPreview)
-	_ = c.Send("Мой тикток: [@vershkovaaa](https://www.tiktok.com/@vershkovaaa)", tele.ModeMarkdownV2, tele.NoPreview)
+	err := c.Send("Меня зовут [Юля](https://t.me/vershkovaaa) Я учу вокалу\\. Этот бот поможет тебе достичь высот в этом деле", tele.ModeMarkdownV2)
+	if err != nil {
+		return err
+	}
+	err = c.Send("Мой инстаграм: [@vershkovaaa](https://www.instagram.com/vershkovaaa)", tele.ModeMarkdownV2, tele.NoPreview)
+	if err != nil {
+		return err
+	}
+	err = c.Send("Мой тикток: [@vershkovaaa](https://www.tiktok.com/@vershkovaaa)", tele.ModeMarkdownV2, tele.NoPreview)
+	if err != nil {
+		return err
+	}
+	err = c.Send("Бот сделал: [@NikolaiAndreadi](https://t.me/NikolaiAndreadi)", tele.ModeMarkdownV2, tele.NoPreview)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
