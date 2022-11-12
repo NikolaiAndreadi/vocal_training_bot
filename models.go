@@ -116,6 +116,13 @@ func createSchema(conn *pgxpool.Pool) {
 	    price			int2	CHECK (price >= 0) DEFAULT 0,
 	    record_id		uuid    -- REFERENCES messages(record_id) MATCH SIMPLE 
 	);
+
+	CREATE TABLE IF NOT EXISTS acquired_warmups (
+	    user_id				int8		REFERENCES users(user_id),
+	    warmup_id			int			REFERENCES warmups(warmup_id),
+	    price_when_acquired	int2,
+	    acquire_datetime	timestamp	DEFAULT now()
+	)
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {

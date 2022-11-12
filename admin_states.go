@@ -410,6 +410,8 @@ func (m message) MessageSig() (messageID string, chatID int64) {
 	return m.messageID, m.chatID
 }
 
+var errNotFoundToCopy = tele.NewError(400, "Bad Request: message to forward not found")
+
 func SendMessages(b *tele.Bot, recordID string) error {
 	rows, err := DB.Query(context.Background(), `
 		SELECT message_id, chat_id, album_id from messages
@@ -465,7 +467,7 @@ func SendMessages(b *tele.Bot, recordID string) error {
 	return nil
 }
 
-func SendMessageToUser(b *tele.Bot, userID int64, recordID string) error {
+func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool) error {
 	rows, err := DB.Query(context.Background(), `
 		SELECT message_id, chat_id, album_id from messages
 		WHERE record_id = $1
@@ -495,10 +497,22 @@ func SendMessageToUser(b *tele.Bot, userID int64, recordID string) error {
 		BakedMessage = append(BakedMessage, msg)
 	}
 
+	if len(BakedMessage) == 0 {
+		return fmt.Errorf("SendMessageToUser[%d]: can't find record %s", userID, recordID)
+	}
+
 	for _, bm := range BakedMessage {
-		_, err = b.Copy(UserIDType{userID}, bm)
+		if secured {
+			_, err = b.Copy(UserIDType{userID}, bm, tele.Protected)
+		} else {
+			_, err = b.Copy(UserIDType{userID}, bm)
+		}
+		//if err == errNotFoundToCopy {
+		//	err = nil
+		// TODO
+		//}
 		if err != nil {
-			return fmt.Errorf("SendMessages[recordID = %s]: sending message error for user [%d]: %w",
+			return fmt.Errorf("SendMessageToUser[recordID = %s]: sending message error for user [%d]: %w",
 				recordID, userID, err)
 		}
 	}
