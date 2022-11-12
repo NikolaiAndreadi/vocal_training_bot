@@ -32,9 +32,9 @@ func setupAdminHandlers(b *tele.Bot) {
 var (
 	MainAdminMenuOptions = []string{
 		"Отправить сообщения пользователям", BotExt.RowSplitterButton,
-		"Группы распевок", "Добавить распевку",
-		"Добавить подбадривание", "Кто нажал на 'Стать учеником'?",
-		"Забанить, Сделать админом", BotExt.RowSplitterButton,
+		"Группы распевок", "Добавить подбадривание",
+		"Добавить распевку", "Изменить распевку",
+		"Кто нажал на 'Стать учеником'?", "Забанить, Сделать админом",
 	}
 	MainAdminMenu = BotExt.ReplyMenuConstructor(MainAdminMenuOptions, 2, false)
 )
@@ -73,6 +73,8 @@ func onText(c tele.Context) error {
 		BotExt.SetStateVar(c.Sender().ID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGAddWarmup)
 		return nil
+	case "Изменить распевку":
+		return adminInlineMenus.Show(c, changeWarmupMenu)
 	case "Добавить подбадривание":
 		userID := c.Sender().ID
 		BotExt.SetStateVar(userID, "RecordID", uuid.New().String())
@@ -118,6 +120,9 @@ func OnAdminInlineResult(c tele.Context) error {
 			return c.Respond()
 		}
 		adminFSM.Trigger(c, AdminSGRenameWarmupGroup)
+	case changeWarmupMenu:
+		BotExt.SetStateVar(c.Sender().ID, "selectedWarmup", triggeredID)
+		///////////////// TODO: SHOW possiblle changes: group,name, price with inline menu. From that -> one shot FSM
 	}
 
 	return c.Respond()
