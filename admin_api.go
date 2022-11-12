@@ -18,13 +18,6 @@ var (
 )
 
 func setupAdminHandlers(b *tele.Bot) {
-	adminGroup := b.Group()
-	adminGroup.Use(Whitelist(UGAdmin))
-	adminGroup.Handle("/start", onStart)
-	adminGroup.Handle(tele.OnText, onText)
-	adminGroup.Handle(tele.OnMedia, onMedia)
-	adminGroup.Handle(tele.OnCallback, OnAdminInlineResult)
-
 	SetupAdminStates()
 	SetupAdminMenuHandlers(b)
 }
@@ -39,11 +32,11 @@ var (
 	MainAdminMenu = BotExt.ReplyMenuConstructor(MainAdminMenuOptions, 2, false)
 )
 
-func onStart(c tele.Context) error {
+func onAdminStart(c tele.Context) error {
 	return c.Send("Админ панель", MainAdminMenu)
 }
 
-func onText(c tele.Context) error {
+func onAdminText(c tele.Context) error {
 	switch c.Text() {
 	case "Отправить сообщения пользователям":
 		userID := c.Sender().ID
@@ -96,7 +89,7 @@ func onText(c tele.Context) error {
 	return nil
 }
 
-func onMedia(c tele.Context) error {
+func onAdminMedia(c tele.Context) error {
 	adminFSM.Update(c)
 	return nil
 }
@@ -126,7 +119,10 @@ func OnAdminInlineResult(c tele.Context) error {
 		adminFSM.Trigger(c, AdminSGRenameWarmupGroup)
 	case changeWarmupMenu:
 		BotExt.SetStateVar(c.Sender().ID, "selectedWarmup", triggeredID)
-		adminInlineMenus.Show(c, changeWarmupParamsMenu)
+		err := adminInlineMenus.Show(c, changeWarmupParamsMenu)
+		if err != nil {
+			fmt.Println(fmt.Errorf("OnAdminInlineResult: changeWarmupMenu: %w", err))
+		}
 	}
 
 	return c.Respond()

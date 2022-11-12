@@ -16,11 +16,9 @@ const yamlCfgName = "config.yml"
 // TODO: add default params where it is reasonable
 type Config struct {
 	Bot struct {
-		Token string `yaml:"Token" envconfig:"BOT_TOKEN" validate:"nonzero"`
+		Token         string `yaml:"Token" envconfig:"BOT_TOKEN" validate:"nonzero"`
+		ProviderToken string `yaml:"ProviderToken" envconfig:"PROVIDER_TOKEN" validate:"nonzero"`
 	} `yaml:"Bot"`
-	AdminBot struct {
-		Token string `yaml:"Token" envconfig:"ADMIN_BOT_TOKEN" validate:"nonzero"`
-	} `yaml:"AdminBot"`
 
 	Pg struct {
 		Host   string `yaml:"Host" envconfig:"PG_HOST" validate:"nonzero"`

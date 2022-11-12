@@ -11,34 +11,30 @@ type UserIDType struct {
 	UserID int64
 }
 
+var ProviderToken string
+
 func (u UserIDType) Recipient() string {
 	return strconv.FormatInt(u.UserID, 10)
-}
-
-func InitAdminBot(cfg Config) *tele.Bot {
-	teleCfg := tele.Settings{
-		Token: cfg.AdminBot.Token,
-	}
-	bot, err := tele.NewBot(teleCfg)
-	if err != nil {
-		panic(fmt.Errorf("InitAdminBot: %w", err))
-	}
-	bot.Use(Whitelist(UGAdmin))
-	setupAdminHandlers(bot)
-	return bot
 }
 
 func InitBot(cfg Config) *tele.Bot {
 	teleCfg := tele.Settings{
 		Token: cfg.Bot.Token,
 	}
+	ProviderToken = cfg.Bot.ProviderToken
 	bot, err := tele.NewBot(teleCfg)
 	if err != nil {
 		panic(fmt.Errorf("InitBot: %w", err))
 	}
-	bot.Use(Blacklist(UGBanned))
+
+	bot.Handle("/start", onStart)
+	bot.Handle(tele.OnText, onText)
+	bot.Handle(tele.OnCallback, onCallback)
+	bot.Handle(tele.OnMedia, onMedia)
+	bot.Handle(tele.OnContact, onContact)
 
 	setupUserHandlers(bot)
+	setupAdminHandlers(bot)
 
 	notificationService.handler = func(userID int64) error {
 		_, err = bot.Send(UserIDType{userID}, "❗ НАПОМИНАНИЕ ❗ Пришло время делать распевку")
@@ -52,10 +48,61 @@ func InitBot(cfg Config) *tele.Bot {
 		}
 
 		if warmupID != "" {
-			return SendMessageToUser(bot, userID, warmupID)
+			return SendMessageToUser(bot, userID, warmupID, false)
 		}
 		return nil
 	}
 
 	return bot
+}
+
+func onStart(c tele.Context) error {
+	ug, _ := GetUserGroup(c.Sender().ID)
+	switch ug {
+	case UGAdmin:
+		return onAdminStart(c)
+	case UGUser, UGNewUser:
+		return onUserStart(c)
+	}
+	return nil
+}
+
+func onCallback(c tele.Context) error {
+	ug, _ := GetUserGroup(c.Sender().ID)
+	switch ug {
+	case UGAdmin:
+		return OnAdminInlineResult(c)
+	case UGUser:
+		return OnUserInlineResult(c)
+	}
+	return nil
+}
+
+func onText(c tele.Context) error {
+	ug, _ := GetUserGroup(c.Sender().ID)
+	switch ug {
+	case UGAdmin:
+		return onAdminText(c)
+	case UGUser, UGNewUser:
+		return onUserText(c)
+	}
+	return nil
+}
+
+func onMedia(c tele.Context) error {
+	ug, _ := GetUserGroup(c.Sender().ID)
+	switch ug {
+	case UGAdmin:
+		return onAdminMedia(c)
+	}
+	return nil
+}
+
+func onContact(c tele.Context) error {
+	ug, _ := GetUserGroup(c.Sender().ID)
+	switch ug {
+	case UGUser:
+		return onUserText(c)
+	}
+	return nil
 }
