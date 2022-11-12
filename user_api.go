@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"vocal_training_bot/BotExt"
@@ -13,6 +14,12 @@ import (
 var (
 	userInlineMenus = BotExt.NewInlineMenus()
 	userFSM         = BotExt.NewFiniteStateMachine(userInlineMenus)
+)
+
+const (
+	WarmupPayloadChecker = "BuyWarmup"
+	PayloadSplit         = "|"
+	PaymentErrorText     = "Произошла ошибка при проведении платежа!"
 )
 
 func setupUserHandlers(b *tele.Bot) {
@@ -54,6 +61,53 @@ func onUserStart(c tele.Context) error {
 
 	userFSM.Trigger(c, SurveySGStartSurveyReqName)
 	return nil
+}
+
+func onUserCheckout(c tele.Context) error {
+	checkout := c.PreCheckoutQuery()
+
+	userID := c.Sender().ID
+	checkoutID := checkout.ID
+
+	payloadData := strings.Split(checkout.Payload, PayloadSplit)
+	if len(payloadData) != 2 {
+		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s]: can't extract payloadData '%s'", userID, checkoutID, payloadData))
+		return c.Bot().Accept(checkout, PaymentErrorText)
+	}
+	if payloadData[0] != WarmupPayloadChecker {
+		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s]: unknown payload checker '%s'", userID, checkoutID, payloadData))
+		return c.Bot().Accept(checkout, PaymentErrorText)
+	}
+	warmupID := payloadData[1]
+	priceWhenAcquired := strconv.Itoa(checkout.Total) + checkout.Currency
+
+	var warmupName string
+	var dbPrice int
+	err := DB.QueryRow(context.Background(), `
+		SELECT warmup_name, price*100 FROM warmups
+		WHERE warmup_id = $1`, warmupID).Scan(&warmupName, &dbPrice)
+	if err != nil {
+		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s warmup %s]: can't find warmup in db: %w", userID, checkoutID, warmupID, err))
+		return c.Bot().Accept(checkout, PaymentErrorText)
+	}
+
+	if dbPrice != checkout.Total {
+		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s warmup %s]: price in database (%d) not equals checkout price (%d)",
+			userID, checkoutID, warmupID, dbPrice, checkout.Total))
+		return c.Bot().Accept(checkout, PaymentErrorText)
+	}
+
+	_, err = DB.Exec(context.Background(), `
+		INSERT INTO acquired_warmups(user_id, warmup_id, checkout_id, price_when_acquired)
+		VALUES ($1, $2, $3, $4)`, userID, warmupID, checkoutID, priceWhenAcquired)
+	if err != nil {
+		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s warmup %s]: exec db error: %w", userID, checkoutID, warmupID, err))
+		return c.Bot().Accept(checkout, PaymentErrorText)
+	}
+
+	_ = c.Send("Распевка '" + warmupName + "' преобретена! Теперь она доступна для просмотра в меню Распевки")
+	fmt.Println(fmt.Printf("onUserCheckout[%d]: successful payment of warmupID %s for %s", userID, warmupID, priceWhenAcquired))
+	return c.Bot().Accept(checkout)
 }
 
 func onUserText(c tele.Context) error {
@@ -119,8 +173,8 @@ func processWarmups(c tele.Context, warmupID string) error {
 
 	invoice := &tele.Invoice{
 		Title:       "Покупка распевки",
-		Description: "Распевка " + warmupName,
-		Payload:     warmupID,
+		Description: "Распевка '" + warmupName + "'",
+		Payload:     WarmupPayloadChecker + PayloadSplit + warmupID,
 		Currency:    "RUB",
 		Prices: []tele.Price{
 			{

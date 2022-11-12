@@ -117,10 +117,15 @@ func createSchema(conn *pgxpool.Pool) {
 	    record_id		uuid    -- REFERENCES messages(record_id) MATCH SIMPLE 
 	);
 
+	
+
 	CREATE TABLE IF NOT EXISTS acquired_warmups (
 	    user_id				int8		REFERENCES users(user_id),
 	    warmup_id			int			REFERENCES warmups(warmup_id),
-	    price_when_acquired	int2,
+	    
+	    checkout_id			text		UNIQUE NOT NULL,
+	    price_when_acquired	text		NOT NULL,
+
 	    acquire_datetime	timestamp	DEFAULT now()
 	)
 	`

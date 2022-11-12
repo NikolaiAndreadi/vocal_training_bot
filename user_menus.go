@@ -389,7 +389,7 @@ func warmupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
 			return omap, fmt.Errorf("warmupsFetcher: can't fetch row: %w", err)
 		}
 		var priceText string
-		if warmupPrice == "0" {
+		if (warmupPrice == "0") && !acquired {
 			priceText = "🎁 бесплатно"
 		} else {
 			if acquired {

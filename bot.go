@@ -32,6 +32,7 @@ func InitBot(cfg Config) *tele.Bot {
 	bot.Handle(tele.OnCallback, onCallback)
 	bot.Handle(tele.OnMedia, onMedia)
 	bot.Handle(tele.OnContact, onContact)
+	bot.Handle(tele.OnCheckout, onCheckout)
 
 	setupUserHandlers(bot)
 	setupAdminHandlers(bot)
@@ -103,6 +104,15 @@ func onContact(c tele.Context) error {
 	switch ug {
 	case UGUser:
 		return onUserText(c)
+	}
+	return nil
+}
+
+func onCheckout(c tele.Context) error {
+	ug, _ := GetUserGroup(c.Sender().ID)
+	switch ug {
+	case UGUser:
+		return onUserCheckout(c)
 	}
 	return nil
 }
