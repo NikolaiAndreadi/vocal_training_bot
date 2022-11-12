@@ -96,7 +96,7 @@ func createSchema(conn *pgxpool.Pool) {
 	    
 	    message_type	varchar(10) NOT NULL,
 	    message_text	text,
-	    entity_json		text
+	    entity_json		text		DEFAULT '{}'
 	);
 	CREATE INDEX IF NOT EXISTS idx_messages__record_id ON messages(record_id);
 

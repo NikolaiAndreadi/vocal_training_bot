@@ -30,6 +30,8 @@ const (
 	ChangeWarmupSetPrice = "ChangeWarmupSetPrice"
 )
 
+const storageFolder = "./message_storage/"
+
 func SetupAdminStates() {
 	err := adminFSM.RegisterOneShotState(&BotExt.State{
 		Name: AdminSGRecordMessage,
@@ -361,14 +363,13 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 	var err error
 	if media != nil {
 		mediaType = media.MediaType()
-
 		mediaFile := media.MediaFile()
 		mediaJSON, err = json.Marshal(mediaFile)
 		if err != nil {
 			fmt.Println(fmt.Errorf("saveMessageToDBandDisk[%d]: cannot unmarshal json, %w", userID, err))
 		}
 
-		fileName := "./message_storage/" + mediaFile.UniqueID
+		fileName := storageFolder + mediaFile.UniqueID
 		checkOrCreateStorageFolder()
 		if _, err := os.Stat(fileName); errors.Is(err, os.ErrNotExist) {
 			err = c.Bot().Download(mediaFile, fileName)
@@ -404,17 +405,26 @@ type message struct {
 	messageID string
 	chatID    int64
 	albumID   string
+
+	Type string
+	Text string
+	Json string
 }
 
 func (m message) MessageSig() (messageID string, chatID int64) {
 	return m.messageID, m.chatID
 }
 
-var errNotFoundToCopy = tele.NewError(400, "Bad Request: message to forward not found")
+func (m message) HasFile() bool {
+	if (m.Type != "text") && m.Json != "{}" {
+		return true
+	}
+	return false
+}
 
 func SendMessages(b *tele.Bot, recordID string) error {
 	rows, err := DB.Query(context.Background(), `
-		SELECT message_id, chat_id, album_id from messages
+		SELECT message_id, chat_id, album_id, message_type, message_text, entity_json from messages
 		WHERE record_id = $1
 		ORDER BY message_id`, recordID)
 
@@ -428,7 +438,7 @@ func SendMessages(b *tele.Bot, recordID string) error {
 	var msg message
 
 	for rows.Next() {
-		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID)
+		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID, &msg.Type, &msg.Text, &msg.Json)
 		if err != nil {
 			return fmt.Errorf("SendMessages[recordID = %s]: messages row scan error %w", recordID, err)
 		}
@@ -456,11 +466,15 @@ func SendMessages(b *tele.Bot, recordID string) error {
 		if err != nil {
 			return fmt.Errorf("SendMessages[recordID = %s]: users row scan error %w", recordID, err)
 		}
+		user := UserIDType{userID}
 		for _, bm := range BakedMessage {
 			_, err = b.Copy(UserIDType{userID}, bm)
+			if err.Error() == "telegram: Bad Request: message to copy not found (400)" {
+				err = sendFromDatabase(b, user, &bm, false)
+			}
 			if err != nil {
-				fmt.Println(fmt.Errorf("SendMessages[recordID = %s]: sending message error for user [%d]: %w",
-					recordID, userID, err))
+				return fmt.Errorf("SendMessageToUsers[recordID = %s]: sending message error for user [%d]: %w",
+					recordID, userID, err)
 			}
 		}
 	}
@@ -469,7 +483,7 @@ func SendMessages(b *tele.Bot, recordID string) error {
 
 func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool) error {
 	rows, err := DB.Query(context.Background(), `
-		SELECT message_id, chat_id, album_id from messages
+		SELECT message_id, chat_id, album_id, message_type, message_text, entity_json from messages
 		WHERE record_id = $1
 		ORDER BY message_id`, recordID)
 
@@ -483,7 +497,7 @@ func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool)
 	var msg message
 
 	for rows.Next() {
-		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID)
+		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID, &msg.Type, &msg.Text, &msg.Json)
 		if err != nil {
 			return fmt.Errorf("SendMessageToUser[recordID = %s]: messages row scan error %w", recordID, err)
 		}
@@ -501,20 +515,86 @@ func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool)
 		return fmt.Errorf("SendMessageToUser[%d]: can't find record %s", userID, recordID)
 	}
 
+	user := UserIDType{userID}
 	for _, bm := range BakedMessage {
 		if secured {
-			_, err = b.Copy(UserIDType{userID}, bm, tele.Protected)
+			_, err = b.Copy(user, bm, tele.Protected)
 		} else {
-			_, err = b.Copy(UserIDType{userID}, bm)
+			_, err = b.Copy(user, bm)
 		}
-		//if err == errNotFoundToCopy {
-		//	err = nil
-		// TODO
-		//}
+		if err.Error() == "telegram: Bad Request: message to copy not found (400)" {
+			err = sendFromDatabase(b, user, &bm, secured)
+		}
 		if err != nil {
 			return fmt.Errorf("SendMessageToUser[recordID = %s]: sending message error for user [%d]: %w",
 				recordID, userID, err)
 		}
 	}
 	return nil
+}
+
+func sendFromDatabase(b *tele.Bot, user tele.Recipient, bm *message, secured bool) (err error) {
+	if !bm.HasFile() {
+		_, err := b.Send(user, bm.Text)
+		return err
+	}
+	var file tele.File
+	err = json.Unmarshal([]byte(bm.Json), &file)
+	if err != nil {
+		return err
+	}
+
+	var loadedFromDisk bool
+	if file.FilePath == "" {
+		// if no filepath -> find it on telegram server
+		file, err = b.FileByID(file.FileID)
+		if err != nil {
+			err = nil
+			// or get it from local storage
+			file = tele.FromDisk(storageFolder + file.UniqueID)
+			loadedFromDisk = true
+		}
+	}
+
+	sendable := createSendable(bm, &file)
+
+	if secured {
+		_, err = b.Send(user, sendable, tele.Protected)
+	} else {
+		_, err = b.Send(user, sendable)
+	}
+	if (err != nil) && !loadedFromDisk {
+		file = tele.FromDisk(storageFolder + file.UniqueID)
+		sendable = createSendable(bm, &file)
+		var err2 error
+		if secured {
+			_, err2 = b.Send(user, sendable, tele.Protected)
+		} else {
+			_, err2 = b.Send(user, sendable)
+		}
+		if err2 != nil {
+			return fmt.Errorf("can't send neither cached and local file '%s': %s - >%w", file.UniqueID, err.Error(), err2)
+		}
+		fmt.Print(fmt.Errorf("sended local file successfully, but couldn't send cached file %s: %w", file.UniqueID, err))
+	}
+	return nil
+}
+
+func createSendable(bm *message, file *tele.File) tele.Sendable {
+	var sendable tele.Sendable
+	switch bm.Type {
+	case "photo":
+		sendable = &tele.Photo{File: *file, Caption: bm.Text}
+	case "audio":
+		sendable = &tele.Audio{File: *file, Caption: bm.Text}
+	case "document":
+		sendable = &tele.Document{File: *file, Caption: bm.Text}
+	case "video":
+		sendable = &tele.Video{File: *file, Caption: bm.Text}
+	case "voice":
+		sendable = &tele.Voice{File: *file, Caption: bm.Text}
+	case "videoNote":
+		sendable = &tele.VideoNote{File: *file}
+	}
+	return sendable
 }
