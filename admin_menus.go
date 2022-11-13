@@ -7,6 +7,7 @@ import (
 	"vocal_training_bot/BotExt"
 
 	om "github.com/wk8/go-ordered-map/v2"
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -150,7 +151,11 @@ func wannabeStudentResolutionFetcher(c tele.Context) (*om.OrderedMap[string, str
 	}
 
 	if omap.Len() == 0 {
-		return nil, c.Send("Активных заявок нет")
+		err2 := c.Send("Активных заявок нет")
+		if err2 != nil {
+			logger.Error("can't send message", zap.Error(err2))
+		}
+		return nil, BotExt.NoButtons
 	}
 
 	return omap, nil

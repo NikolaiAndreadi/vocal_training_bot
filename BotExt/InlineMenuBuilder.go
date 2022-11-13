@@ -1,6 +1,7 @@
 package BotExt
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -63,8 +64,12 @@ func (ims *InlineMenusType) Show(c tele.Context, menuName string) error {
 	}
 	// current context - pressed ReplyMenu button, so next one - inline menu TODO - fix this
 	setMessageID(c.Sender().ID, c.Message().ID+1)
-	err := c.Send(menu.header, menu.bake(c))
-	return err
+
+	if m := menu.bake(c); m == nil {
+		return nil
+	} else {
+		return c.Send(menu.header, m)
+	}
 }
 
 // InlineMenu implementation
@@ -77,6 +82,8 @@ type DataFetcher func(c tele.Context) (map[string]string, error)
 
 // ButtonFetcher is a type for extracting dynamic buttons (e.g. count) from database. OrderedMap -> buttons should be ordered
 type ButtonFetcher func(c tele.Context) (*om.OrderedMap[string, string], error)
+
+var NoButtons = errors.New("__NO_ROWS__")
 
 // InlineMenu is an abstraction to construct both static and dynamic content into inline buttons.
 // Name - unique id of menu, used to modify content of buttons
@@ -199,6 +206,9 @@ func (im *InlineMenu) dynamicBake(c tele.Context) error {
 
 	btnMap, err := im.buttonFetcher(c)
 	if err != nil {
+		if err == NoButtons {
+			return NoButtons
+		}
 		return fmt.Errorf("UpdateButtons: %w", err)
 	}
 
@@ -223,6 +233,9 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 	if im.dataFetcher == nil {
 		err := im.dynamicBake(c)
 		if err != nil {
+			if err == NoButtons {
+				return nil
+			}
 			logger.Error("can't dynamicBake", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
 		}
 		return im.menuCarcass
