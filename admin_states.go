@@ -108,9 +108,11 @@ func SetupAdminStates() {
 	})
 
 	err = adminFSM.RegisterOneShotState(&BotExt.State{
-		Name:      ChangeWarmupSetName,
-		OnTrigger: "Новое имя?",
-		Validator: nameMax50Validator,
+		Name:           ChangeWarmupSetName,
+		OnTrigger:      "Новое имя?",
+		KeepVarsOnQuit: true,
+		OnSuccess:      "Done!",
+		Validator:      nameMax50Validator,
 		Manipulator: func(c tele.Context) error {
 			warmupID, _ := BotExt.GetStateVar(c.Sender().ID, "selectedWarmup")
 			_, err = DB.Exec(context.Background(), `
@@ -126,6 +128,7 @@ func SetupAdminStates() {
 		Name:      ChangeWarmupSetPrice,
 		OnTrigger: "Новая цена?",
 		Validator: priceValidator,
+		OnSuccess: "Done!",
 		Manipulator: func(c tele.Context) error {
 			warmupID, _ := BotExt.GetStateVar(c.Sender().ID, "selectedWarmup")
 			_, err = DB.Exec(context.Background(), `
@@ -361,6 +364,7 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 	media := msg.Media()
 	mediaType := "text"
 	var mediaJSON []byte
+	var strMediaJSON string
 	var err error
 	if media != nil {
 		mediaType = media.MediaType()
@@ -368,6 +372,10 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 		mediaJSON, err = json.Marshal(mediaFile)
 		if err != nil {
 			logger.Error("can't unmarshal json", zap.Int64("user", userID), zap.Error(err))
+		}
+		strMediaJSON = string(mediaJSON)
+		if strMediaJSON == "" {
+			strMediaJSON = "{}"
 		}
 
 		fileName := storageFolder + mediaFile.UniqueID
@@ -386,7 +394,7 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 	_, err = DB.Exec(context.Background(), `
 		INSERT INTO messages (record_id, message_id, chat_id, album_id, message_type, message_text, entity_json)
 		VALUES ($1 :: uuid, $2, $3, $4, $5, $6, $7)`,
-		recordID, messageID, chatID, albumID, mediaType, messageText, mediaJSON)
+		recordID, messageID, chatID, albumID, mediaType, messageText, strMediaJSON)
 	if err != nil {
 		return fmt.Errorf("saveMessageToDBandDisk[%d]: cannot update database, %w", userID, err)
 	}
@@ -524,12 +532,14 @@ func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool)
 		} else {
 			_, err = b.Copy(user, bm)
 		}
-		if err.Error() == "telegram: Bad Request: message to copy not found (400)" {
-			err = sendFromDatabase(b, user, &bm, secured)
-		}
+
 		if err != nil {
-			return fmt.Errorf("SendMessageToUser[recordID = %s]: sending message error for user [%d]: %w",
-				recordID, userID, err)
+			if err.Error() == "telegram: Bad Request: message to copy not found (400)" {
+				err = sendFromDatabase(b, user, &bm, secured)
+			} else {
+				return fmt.Errorf("SendMessageToUser[recordID = %s]: sending message error for user [%d]: %w",
+					recordID, userID, err)
+			}
 		}
 	}
 	return nil
@@ -577,9 +587,11 @@ func sendFromDatabase(b *tele.Bot, user tele.Recipient, bm *message, secured boo
 		if err2 != nil {
 			return fmt.Errorf("can't send neither cached and local file '%s': %s - >%w", file.UniqueID, err.Error(), err2)
 		}
-		logger.Warn("sended local file successfully, but couldn't send cached file",
+		logger.Warn("sent local file successfully, but couldn't send cached file",
 			zap.String("fileUniqueID", file.UniqueID), zap.Error(err))
 	}
+	logger.Warn("sent cached file successfully",
+		zap.String("fileUniqueID", file.UniqueID), zap.Error(err))
 	return nil
 }
 
