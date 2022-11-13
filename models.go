@@ -185,6 +185,11 @@ func initUserDBs(userID int64) error {
 		return fmt.Errorf("initUserDBs: %w", err)
 	}
 
+	// invalidate cache for new user
+	if rdErr := RD.Del(strconv.FormatInt(userID, 10)).Err(); rdErr != nil {
+		logger.Error("can't invalidate cache", zap.Int64("user", userID), zap.Error(err))
+	}
+
 	return nil
 }
 
