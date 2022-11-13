@@ -6,6 +6,7 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
+// ReplyMenuConstructor creates reply menu (under user input field)
 func ReplyMenuConstructor(possibleSelections []string, maxElementsInRow int, once bool) *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{
 		ResizeKeyboard:  true,

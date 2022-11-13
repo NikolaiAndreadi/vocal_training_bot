@@ -9,16 +9,19 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
+// InlineMenusType contains logic for all menus in "separate namespace"
 type InlineMenusType struct {
 	menus map[string]*InlineMenu
 }
 
+// NewInlineMenus - constructor for InlineMenusType
 func NewInlineMenus() *InlineMenusType {
 	return &InlineMenusType{
 		menus: make(map[string]*InlineMenu),
 	}
 }
 
+// GetInlineMenu - returns pointer to concrete InlineMenu by name
 func (ims *InlineMenusType) GetInlineMenu(name string) *InlineMenu {
 	if menu, ok := ims.menus[name]; ok {
 		return menu
@@ -27,19 +30,22 @@ func (ims *InlineMenusType) GetInlineMenu(name string) *InlineMenu {
 	return nil
 }
 
+// Update - refreshes content for concrete InlineMenu
 func (ims *InlineMenusType) Update(c tele.Context, name string) {
 	userID := c.Sender().ID
-	if menu, ok := ims.menus[name]; ok {
-		if msgID, ok := getMessageID(userID); ok {
-			menu.Update(c, strconv.Itoa(msgID))
-		} else {
-			logger.Error("can't menu message id from db", zap.Int64("userID", userID), zap.String("menuName", name))
-		}
-	} else {
+	menu, ok := ims.menus[name]
+	if !ok {
 		logger.Error("can't find inline menu", zap.Int64("userID", userID), zap.String("menuName", name))
+		return
+	}
+	if msgID, ok := getMessageID(userID); ok {
+		menu.Update(c, strconv.Itoa(msgID))
+	} else {
+		logger.Error("can't menu message id from db", zap.Int64("userID", userID), zap.String("menuName", name))
 	}
 }
 
+// RegisterMenu adds concrete InlineMenu to InlineMenusType
 func (ims *InlineMenusType) RegisterMenu(bot *tele.Bot, menu *InlineMenu) error {
 	if _, ok := ims.menus[menu.Name]; ok {
 		return fmt.Errorf("InlineMenusType.RegisterMenu: menu '%s' already registerd", menu.Name)
@@ -49,23 +55,27 @@ func (ims *InlineMenusType) RegisterMenu(bot *tele.Bot, menu *InlineMenu) error 
 	return nil
 }
 
+// Show will render user-specific menu
 func (ims *InlineMenusType) Show(c tele.Context, menuName string) error {
 	menu, ok := ims.menus[menuName]
 	if !ok {
 		return fmt.Errorf("InlineMenusType.Show: menu %s is not registered", menuName)
 	}
-	setMessageID(c.Sender().ID, c.Message().ID+1) // current context - pressed ReplyMenu button, so next one - inline menu
+	// current context - pressed ReplyMenu button, so next one - inline menu TODO - fix this
+	setMessageID(c.Sender().ID, c.Message().ID+1)
 	err := c.Send(menu.header, menu.bake(c))
 	return err
 }
 
-///////////////////////////////////////////////////////////// CONCRETE InlineMenu implementation
+// InlineMenu implementation
 
 // InlineMenuTextSetter is a type for dynamic content setter
 type InlineMenuTextSetter func(tele.Context, map[string]string) (string, error)
 
 // DataFetcher is a type for extracting dynamic content from database
 type DataFetcher func(c tele.Context) (map[string]string, error)
+
+// ButtonFetcher is a type for extracting dynamic buttons (e.g. count) from database. OrderedMap -> buttons should be ordered
 type ButtonFetcher func(c tele.Context) (*om.OrderedMap[string, string], error)
 
 // InlineMenu is an abstraction to construct both static and dynamic content into inline buttons.
@@ -89,7 +99,9 @@ type InlineMenu struct {
 	menuCarcass *tele.ReplyMarkup
 }
 
-// NewInlineMenu is a constructor for
+// TODO: inlineMenu, dynamicInlineMenu => interface
+
+// NewInlineMenu is a constructor for InlineMenu with dynamic content
 func NewInlineMenu(menuName, menuHeader string, maxButtonsInRow int, fetcher DataFetcher) *InlineMenu {
 	return &InlineMenu{
 		Name:            menuName,
@@ -99,6 +111,7 @@ func NewInlineMenu(menuName, menuHeader string, maxButtonsInRow int, fetcher Dat
 	}
 }
 
+// NewDynamicInlineMenu is a constructor for InlineMenu with dynamic button count
 func NewDynamicInlineMenu(menuName, menuHeader string, maxButtonsInRow int, fetcher ButtonFetcher) *InlineMenu {
 	return &InlineMenu{
 		Name:            menuName,
@@ -108,34 +121,7 @@ func NewDynamicInlineMenu(menuName, menuHeader string, maxButtonsInRow int, fetc
 	}
 }
 
-// dynamicBake uses buttonFetcher to extract buttons from database. key - id, value - name
-func (im *InlineMenu) dynamicBake(c tele.Context) error {
-	if im.buttonFetcher == nil {
-		return nil
-	}
-
-	btnMap, err := im.buttonFetcher(c)
-	if err != nil {
-		return fmt.Errorf("UpdateButtons: %w", err)
-	}
-
-	im.PurgeButtons()
-
-	if btnMap != nil {
-		for pair := btnMap.Oldest(); pair != nil; pair = pair.Next() {
-			im.AddButton(&InlineButtonTemplate{
-				Unique:         pair.Key,
-				TextOnCreation: pair.Value,
-				OnClick:        pair.Value,
-			})
-		}
-	}
-
-	im.construct(c.Bot())
-
-	return nil
-}
-
+// AddButtons adds concrete buttons into InlineMenu
 func (im *InlineMenu) AddButtons(buttons []*InlineButtonTemplate) {
 	im.PurgeButtons()
 	for _, button := range buttons {
@@ -143,11 +129,13 @@ func (im *InlineMenu) AddButtons(buttons []*InlineButtonTemplate) {
 	}
 }
 
+// PurgeButtons clears all possible dynamic content
 func (im *InlineMenu) PurgeButtons() {
 	im.btnTemplates = make([]*InlineButtonTemplate, 0)
 	im.textSetters = make(map[string]InlineMenuTextSetter)
 }
 
+// AddButton adds only one button into InlineMenu
 func (im *InlineMenu) AddButton(button *InlineButtonTemplate) {
 	button.belongsToMenu = im
 
@@ -159,6 +147,21 @@ func (im *InlineMenu) AddButton(button *InlineButtonTemplate) {
 	}
 
 	im.btnTemplates = append(im.btnTemplates, button)
+}
+
+// Update refreshes content of InlineMenu
+func (im *InlineMenu) Update(c tele.Context, msgID string) {
+	menu := im.bake(c)
+
+	msg := tele.StoredMessage{
+		MessageID: msgID,
+		ChatID:    c.Chat().ID,
+	}
+	_, err := c.Bot().Edit(msg, im.header, menu)
+	if (err != nil) && (err != tele.ErrSameMessageContent) {
+		logger.Error("can't update inline menu", zap.Int64("userID", c.Sender().ID),
+			zap.String("menuName", im.Name), zap.String("messageID", msgID), zap.Error(err))
+	}
 }
 
 func (im *InlineMenu) construct(b *tele.Bot) {
@@ -188,18 +191,32 @@ func (im *InlineMenu) construct(b *tele.Bot) {
 	im.menuCarcass.Inline(rows...)
 }
 
-func (im *InlineMenu) Update(c tele.Context, msgID string) {
-	menu := im.bake(c)
+// dynamicBake uses buttonFetcher (NewDynamicInlineMenu) to extract buttons from database. key - id, value - name
+func (im *InlineMenu) dynamicBake(c tele.Context) error {
+	if im.buttonFetcher == nil {
+		return nil
+	}
 
-	msg := tele.StoredMessage{
-		MessageID: msgID,
-		ChatID:    c.Chat().ID,
+	btnMap, err := im.buttonFetcher(c)
+	if err != nil {
+		return fmt.Errorf("UpdateButtons: %w", err)
 	}
-	_, err := c.Bot().Edit(msg, im.header, menu)
-	if (err != nil) && (err != tele.ErrSameMessageContent) {
-		logger.Error("can't update inline menu", zap.Int64("userID", c.Sender().ID),
-			zap.String("menuName", im.Name), zap.String("messageID", msgID), zap.Error(err))
+
+	im.PurgeButtons()
+
+	if btnMap != nil {
+		for pair := btnMap.Oldest(); pair != nil; pair = pair.Next() {
+			im.AddButton(&InlineButtonTemplate{
+				Unique:         pair.Key,
+				TextOnCreation: pair.Value,
+				OnClick:        pair.Value,
+			})
+		}
 	}
+
+	im.construct(c.Bot())
+
+	return nil
 }
 
 func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
@@ -251,7 +268,7 @@ func (im *InlineMenu) manageButton(b *tele.Bot, button *InlineButtonTemplate) te
 	return bakedButton
 }
 
-///////////////////////////////////////////////////////////// InlineButtonTemplate implementation
+// InlineButtonTemplate implementation
 
 // RowSplitterButton can be set as unique param of InlineButtonTemplate to split a table of buttons and start a new row
 const RowSplitterButton = "__SPLITTER__"
