@@ -7,6 +7,7 @@ import (
 	"vocal_training_bot/BotExt"
 
 	om "github.com/wk8/go-ordered-map/v2"
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -48,7 +49,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 		OnClick: func(c tele.Context) error {
 			BotExt.ResetState(c.Sender().ID)
 			if err := c.Send("OK", MainUserMenu); err != nil {
-				fmt.Println(err)
+				logger.Error("can't send OK button", zap.Int64("userID", c.Sender().ID), zap.Error(err))
 			}
 			return c.Respond()
 		},
@@ -191,22 +192,25 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 			},
 			OnClick: func(c tele.Context) error {
 				var res bool
+				userID := c.Sender().ID
 				err := DB.QueryRow(context.Background(), `
 					UPDATE warmup_notification_global
 					SET global_switch = NOT global_switch
 					WHERE user_id = $1
-					RETURNING global_switch`, c.Sender().ID).Scan(&res)
+					RETURNING global_switch`, userID).Scan(&res)
 				if err != nil {
-					fmt.Println(fmt.Errorf("can't switch global notifications: %w", err))
+					logger.Error("can't switch global notifications",
+						zap.Int64("userID", userID), zap.Error(err))
 				}
 				userInlineMenus.Update(c, WarmupNotificationsMenu)
 				if res {
-					err = notificationService.AddUser(c.Sender().ID)
+					err = notificationService.AddUser(userID)
 				} else {
-					err = notificationService.DelUser(c.Sender().ID)
+					err = notificationService.DelUser(userID)
 				}
 				if err != nil {
-					fmt.Println(fmt.Errorf("can't switch global notifications: %w", err))
+					logger.Error("can't switch global notifications",
+						zap.Int64("userID", userID), zap.Error(err))
 				}
 				return c.Respond()
 			}},
@@ -298,19 +302,23 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 			SET trigger_switch = NOT trigger_switch
 			WHERE (user_id = $1) AND (day_of_week = $2)`, userID, dayUnique)
 			if err != nil {
-				fmt.Println(fmt.Errorf("can't switch notifications for day %s: %w", dayUnique, err))
+				logger.Error("can't switch notifications for day",
+					zap.Int64("userID", userID), zap.Error(err))
 			}
 			ims.Update(c, WarmupNotificationsMenu)
 
 			ts, err := getNearestNotificationFromPg(userID)
 			if err != nil {
-				fmt.Println(fmt.Errorf("switch notifications for day %s: getNearestNotificationFromPg: %w", dayUnique, err))
+				logger.Error("can't switch notifications for day",
+					zap.Int64("userID", userID), zap.String("dayUnique", dayUnique), zap.Error(err))
 			}
 			if err = notificationService.DelUser(userID); err != nil {
-				fmt.Println(fmt.Errorf("switch notifications for day %s: %w", dayUnique, err))
+				logger.Error("can't switch notifications for day",
+					zap.Int64("userID", userID), zap.String("dayUnique", dayUnique), zap.Error(err))
 			}
 			if err = notificationService.addUser(userID, ts); err != nil {
-				fmt.Println(fmt.Errorf("switch notifications for day %s: %w", dayUnique, err))
+				logger.Error("can't switch notifications for day",
+					zap.Int64("userID", userID), zap.String("dayUnique", dayUnique), zap.Error(err))
 			}
 			return c.Respond()
 		},

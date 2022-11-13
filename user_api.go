@@ -8,6 +8,7 @@ import (
 
 	"vocal_training_bot/BotExt"
 
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -38,7 +39,8 @@ func OnUserInlineResult(c tele.Context) error {
 		BotExt.SetStateVar(c.Sender().ID, "selectedWarmupGroup", triggeredID)
 		err := userInlineMenus.Show(c, WarmupsMenu)
 		if err != nil {
-			fmt.Println(fmt.Errorf("OnUserInlineResult: WarmupGroupsMenu: %w", err))
+			logger.Error("WarmupGroupsMenu", zap.Error(err))
+
 		}
 		return c.Respond()
 	case WarmupsMenu:
@@ -71,11 +73,13 @@ func onUserCheckout(c tele.Context) error {
 
 	payloadData := strings.Split(checkout.Payload, PayloadSplit)
 	if len(payloadData) != 2 {
-		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s]: can't extract payloadData '%s'", userID, checkoutID, payloadData))
+		logger.Error("can't extract payloadData", zap.Int64("userID", userID),
+			zap.String("checkoutID", checkoutID), zap.Strings("payload", payloadData))
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
 	if payloadData[0] != WarmupPayloadChecker {
-		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s]: unknown payload checker '%s'", userID, checkoutID, payloadData))
+		logger.Error("unknown payloadChecker", zap.Int64("userID", userID),
+			zap.String("checkoutID", checkoutID), zap.Strings("payload", payloadData))
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
 	warmupID := payloadData[1]
@@ -87,13 +91,16 @@ func onUserCheckout(c tele.Context) error {
 		SELECT warmup_name, price*100 FROM warmups
 		WHERE warmup_id = $1`, warmupID).Scan(&warmupName, &dbPrice)
 	if err != nil {
-		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s warmup %s]: can't find warmup in db: %w", userID, checkoutID, warmupID, err))
+		logger.Error("can't find warmup in db", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+			zap.String("checkoutID", checkoutID))
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
 
 	if dbPrice != checkout.Total {
-		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s warmup %s]: price in database (%d) not equals checkout price (%d)",
-			userID, checkoutID, warmupID, dbPrice, checkout.Total))
+		logger.Error("price doesn't match", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+			zap.String("checkoutID", checkoutID), zap.Strings("payload", payloadData),
+			zap.Int("dbPrice", dbPrice), zap.Int("checkout.Total", checkout.Total),
+		)
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
 
@@ -101,12 +108,14 @@ func onUserCheckout(c tele.Context) error {
 		INSERT INTO acquired_warmups(user_id, warmup_id, checkout_id, price_when_acquired)
 		VALUES ($1, $2, $3, $4)`, userID, warmupID, checkoutID, priceWhenAcquired)
 	if err != nil {
-		fmt.Println(fmt.Errorf("onUserCheckout[%d->%s warmup %s]: exec db error: %w", userID, checkoutID, warmupID, err))
+		logger.Error("exec db error", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+			zap.String("checkoutID", checkoutID), zap.Error(err))
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
 
 	_ = c.Send("Распевка '" + warmupName + "' преобретена! Теперь она доступна для просмотра в меню Распевки")
-	fmt.Println(fmt.Printf("onUserCheckout[%d]: successful payment of warmupID %s for %s", userID, warmupID, priceWhenAcquired))
+	logger.Info("successful payment", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+		zap.String("price", priceWhenAcquired))
 	return c.Bot().Accept(checkout)
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/go-redis/redis"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 var DB *pgxpool.Pool
@@ -146,7 +147,7 @@ func UserIsInDatabase(UserID int64) bool {
 		return false
 	}
 	if err != nil {
-		fmt.Println(fmt.Errorf("UserIsInDatabase[%d]: %w", UserID, err))
+		logger.Error("", zap.Int64("user", userID), zap.Error(err))
 	}
 
 	return false
@@ -231,13 +232,13 @@ func GetUserGroup(userID int64) (UserGroup, error) {
 		WHERE user_id = $1`, userID).Scan(&ug)
 	if err == nil {
 		if rdErr := RD.Set(strUserID, ug, 1*time.Hour).Err(); rdErr != nil {
-			fmt.Println(fmt.Errorf("CheckUserGroup[%d]: can't cache user group", userID))
+			logger.Error("can't cache user group", zap.Int64("user", userID), zap.Error(err))
 		}
 		return UserGroup(ug), nil
 	}
 	if err == pgx.ErrNoRows {
 		if rdErr := RD.Set(strUserID, UGNewUser, 1*time.Hour).Err(); rdErr != nil {
-			fmt.Println(fmt.Errorf("CheckUserGroup[%d]: can't cache user group: %w", userID, rdErr))
+			logger.Error("can't cache user group", zap.Int64("user", userID), zap.Error(err))
 		}
 		return UGNewUser, nil
 	}
@@ -255,7 +256,7 @@ func SetUserGroup(userID int64, ug UserGroup) error {
 	}
 	// update cache
 	if rdErr := RD.Del(strconv.FormatInt(userID, 10)).Err(); rdErr != nil {
-		fmt.Println(fmt.Errorf("SetUserGroup[%d]: can't invalidaate cache: %w", userID, rdErr))
+		logger.Error("can't invalidate cache", zap.Int64("user", userID), zap.Error(err))
 	}
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"vocal_training_bot/BotExt"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -82,7 +83,7 @@ func onAdminText(c tele.Context) error {
 		return err
 	}
 	if err != nil {
-		fmt.Println(fmt.Errorf("admin.onText: %w", err))
+		logger.Error("", zap.Int64("user", c.Sender().ID), zap.Error(err))
 	}
 
 	adminFSM.Update(c)
@@ -99,7 +100,7 @@ func OnAdminInlineResult(c tele.Context) error {
 	triggeredData := strings.Split(callback.Data[1:len(callback.Data)], "|") // 1st - special callback symbol /f
 	triggeredID := triggeredData[0]
 	triggeredItem := triggeredData[1]
-
+	userID := c.Sender().ID
 	switch triggeredItem {
 	case wannabeStudentResolutionMenu:
 		if userID, err := strconv.ParseInt(triggeredID, 10, 64); err == nil {
@@ -107,7 +108,7 @@ func OnAdminInlineResult(c tele.Context) error {
 		}
 		return fmt.Errorf("OnAdminInlineResult: %s: can't parse userID", wannabeStudentResolutionMenu)
 	case warmupGroupAdminMenu:
-		BotExt.SetStateVar(c.Sender().ID, "selectedWarmupGroup", triggeredID)
+		BotExt.SetStateVar(userID, "selectedWarmupGroup", triggeredID)
 		if adminFSM.GetCurrentState(c) == AdminSGAddWarmup {
 			adminFSM.Update(c)
 			return c.Respond()
@@ -118,10 +119,10 @@ func OnAdminInlineResult(c tele.Context) error {
 		}
 		adminFSM.Trigger(c, AdminSGRenameWarmupGroup)
 	case changeWarmupMenu:
-		BotExt.SetStateVar(c.Sender().ID, "selectedWarmup", triggeredID)
+		BotExt.SetStateVar(userID, "selectedWarmup", triggeredID)
 		err := adminInlineMenus.Show(c, changeWarmupParamsMenu)
 		if err != nil {
-			fmt.Println(fmt.Errorf("OnAdminInlineResult: changeWarmupMenu: %w", err))
+			logger.Error("changeWarmupMenu", zap.Int64("user", userID), zap.Error(err))
 		}
 	}
 
@@ -177,12 +178,12 @@ func sendUserList(c tele.Context) error {
 	for rows.Next() {
 		err := rows.Scan(&userID, &userName, &userClass)
 		if err != nil {
-			fmt.Println(fmt.Errorf("sendUserList: users row scan error %w", err))
+			logger.Error("users row scan error", zap.Int64("user", userID), zap.Error(err))
 		}
 		userLine := fmt.Sprintf("%d|%s|%s", userID, userName, userClass)
 		err = c.Send(userLine)
 		if err != nil {
-			fmt.Println(fmt.Errorf("sendUserList: can't send message %w", err))
+			logger.Error("can't send message", zap.Int64("user", userID), zap.Error(err))
 		}
 	}
 	return nil
@@ -212,19 +213,19 @@ func handleUserGroupChange(c tele.Context) (error, bool) {
 	case "бан":
 		err := c.Send(fmt.Sprintf("Пользователь %s[ID%s] теперь забанен", replySplit[1], replySplit[0]))
 		if err != nil {
-			fmt.Println(fmt.Errorf("handleTextWithReply: can't send message"))
+			logger.Error("can't send message", zap.Int64("user", userID), zap.Error(err))
 		}
 		return SetUserGroup(userID, UGBanned), true
 	case "админ":
 		err := c.Send(fmt.Sprintf("Пользователь %s[ID%s] теперь админ", replySplit[1], replySplit[0]))
 		if err != nil {
-			fmt.Println(fmt.Errorf("handleTextWithReply: can't send message"))
+			logger.Error("can't send message", zap.Int64("user", userID), zap.Error(err))
 		}
 		return SetUserGroup(userID, UGAdmin), true
 	case "юзер":
 		err := c.Send(fmt.Sprintf("Пользователь %s[ID%s] теперь обычный пользователь", replySplit[1], replySplit[0]))
 		if err != nil {
-			fmt.Println(fmt.Errorf("handleTextWithReply: can't send message"))
+			logger.Error("can't send message", zap.Int64("user", userID), zap.Error(err))
 		}
 		return SetUserGroup(userID, UGUser), true
 	}

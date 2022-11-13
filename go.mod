@@ -8,6 +8,7 @@ require (
 	github.com/jackc/pgx/v5 v5.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/wk8/go-ordered-map/v2 v2.0.0
+	go.uber.org/zap v1.23.0
 	golang.org/x/exp v0.0.0-20221026004748-78e5e7837ae6
 	golang.org/x/text v0.4.0
 	gopkg.in/telebot.v3 v3.1.2
@@ -23,5 +24,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.24.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	go.uber.org/atomic v1.10.0 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
 )

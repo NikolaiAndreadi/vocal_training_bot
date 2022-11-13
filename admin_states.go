@@ -11,6 +11,7 @@ import (
 
 	"vocal_training_bot/BotExt"
 
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -323,7 +324,7 @@ func RecordOneTimeMessage(c tele.Context) error {
 
 	if c.Text() == "СТОП" {
 		if err := c.Send("Отправка сообщений..."); err != nil {
-			fmt.Println(fmt.Errorf("RecordOneTimeMessage[%d]: can't send message: %w", userID, err))
+			logger.Error("can't send message", zap.Int64("user", userID), zap.Error(err))
 		}
 		return SendMessages(c.Bot(), recordID)
 	}
@@ -366,7 +367,7 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 		mediaFile := media.MediaFile()
 		mediaJSON, err = json.Marshal(mediaFile)
 		if err != nil {
-			fmt.Println(fmt.Errorf("saveMessageToDBandDisk[%d]: cannot unmarshal json, %w", userID, err))
+			logger.Error("can't unmarshal json", zap.Int64("user", userID), zap.Error(err))
 		}
 
 		fileName := storageFolder + mediaFile.UniqueID
@@ -374,10 +375,11 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 		if _, err := os.Stat(fileName); errors.Is(err, os.ErrNotExist) {
 			err = c.Bot().Download(mediaFile, fileName)
 			if err != nil {
-				fmt.Println(fmt.Errorf("saveMessageToDBandDisk[%d]: cannot save message, %w", userID, err))
+				logger.Error("can't save message", zap.Int64("user", userID), zap.Error(err))
 			}
 		} else {
-			fmt.Println("exists")
+			logger.Error("file exists", zap.Int64("user", userID),
+				zap.String("fileUniqueID", mediaFile.UniqueID), zap.Error(err))
 		}
 	}
 
@@ -396,7 +398,7 @@ func checkOrCreateStorageFolder() {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		err := os.Mkdir(path, os.ModePerm)
 		if err != nil {
-			fmt.Println(fmt.Errorf("checkOrCreateStorageFolder: %w", err))
+			logger.Error("", zap.Error(err))
 		}
 	}
 }
@@ -575,7 +577,8 @@ func sendFromDatabase(b *tele.Bot, user tele.Recipient, bm *message, secured boo
 		if err2 != nil {
 			return fmt.Errorf("can't send neither cached and local file '%s': %s - >%w", file.UniqueID, err.Error(), err2)
 		}
-		fmt.Print(fmt.Errorf("sended local file successfully, but couldn't send cached file %s: %w", file.UniqueID, err))
+		logger.Warn("sended local file successfully, but couldn't send cached file",
+			zap.String("fileUniqueID", file.UniqueID), zap.Error(err))
 	}
 	return nil
 }

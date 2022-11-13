@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/kelseyhightower/envconfig"
+	"go.uber.org/zap"
 	"gopkg.in/validator.v2"
 	"gopkg.in/yaml.v3"
 )
@@ -66,15 +67,15 @@ func ParseConfig() Config {
 	yamlErr := parseYamlConfig(&cfg)
 	envErr := parseEnvConfig(&cfg)
 
-	// TODO: Add logger
 	if yamlErr != nil {
-		fmt.Println(yamlErr)
+		logger.Error("yaml parse error", zap.Error(yamlErr))
 	}
 	if envErr != nil {
-		fmt.Println(envErr)
+		logger.Error("env parse error", zap.Error(yamlErr))
 	}
 	if err := validator.Validate(cfg); err != nil {
 		err = fmt.Errorf("ParseConfig: Failed to extract all fields for config: %w", err)
+		logger.Fatal("", zap.Error(err))
 		panic(err)
 	}
 

@@ -1,6 +1,9 @@
 package main
 
-import tele "gopkg.in/telebot.v3"
+import (
+	"go.uber.org/zap"
+	tele "gopkg.in/telebot.v3"
+)
 
 type RestrictConfig struct {
 	UserType UserGroup
@@ -51,4 +54,35 @@ func Whitelist(userType UserGroup) tele.MiddlewareFunc {
 			Out:      func(c tele.Context) error { return nil },
 		})(next)
 	}
+}
+
+func MiddlewareLogger(logger *zap.Logger) tele.MiddlewareFunc {
+	if logger == nil {
+		panic("MiddlewareLogger: logger is nil")
+	}
+	return func(next tele.HandlerFunc) tele.HandlerFunc {
+		return func(c tele.Context) error {
+			err := next(c)
+			var msgType string
+			if c.Message() != nil {
+				m := c.Message().Media()
+				if m != nil {
+					msgType = m.MediaType()
+				}
+			}
+			logger.Info(c.Text(),
+				zap.Int64("user", c.Sender().ID),
+				zap.String("data", c.Data()),
+				zap.String("type", msgType),
+			)
+			if err != nil {
+				logger.Error("",
+					zap.Int64("user", c.Sender().ID),
+					zap.Error(err),
+				)
+			}
+			return err
+		}
+	}
+
 }

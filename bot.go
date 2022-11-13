@@ -27,6 +27,8 @@ func InitBot(cfg Config) *tele.Bot {
 		panic(fmt.Errorf("InitBot: %w", err))
 	}
 
+	bot.Use(MiddlewareLogger(logger))
+
 	bot.Handle("/start", onStart)
 	bot.Handle(tele.OnText, onText)
 	bot.Handle(tele.OnCallback, onCallback)

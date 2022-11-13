@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.uber.org/zap"
 )
 
 const delayedNotificationList = "delayedNotificationList"
@@ -40,7 +41,7 @@ func (ns *NotificationService) Start() {
 			case <-ticker.C:
 				err := ns.processUsers()
 				if err != nil {
-					fmt.Println(fmt.Errorf("NotificationService.Run: %w", err))
+					logger.Error("processUsers", zap.Error(err))
 				}
 			case <-ns.quit:
 				ticker.Stop()
@@ -109,17 +110,17 @@ func (ns *NotificationService) processUsers() error {
 	for _, user := range users {
 		userID, err := strconv.ParseInt(user, 10, 64)
 		if err != nil {
-			fmt.Println(fmt.Errorf("NotificationService.processUsers ParseInt: %s lead to error %w", user, err))
+			logger.Error("ParseInt user", zap.String("user", user), zap.Error(err))
 			continue
 		}
 		err = ns.handler(userID)
 		if err != nil {
-			fmt.Println(fmt.Errorf("NotificationService.processUsers handler[%d]: %w", userID, err))
+			logger.Error("handler", zap.Int64("user", userID), zap.Error(err))
 			continue
 		}
 		err = ns.DelUser(userID)
 		if err != nil {
-			fmt.Println(fmt.Errorf("NotificationService.processUsers delUser[%d]: %w", userID, err))
+			logger.Error("DelUser", zap.Int64("user", userID), zap.Error(err))
 			continue
 		}
 		updateList = append(updateList, userID)
@@ -127,17 +128,17 @@ func (ns *NotificationService) processUsers() error {
 
 	currentNotifications, err := getNearestNotificationsFromPg()
 	if err != nil {
-		fmt.Println(fmt.Errorf("NotificationService.processUsers get currentNotifications: %w", err))
+		logger.Error("getNearestNotificationsFromPg", zap.Error(err))
 	}
 	for _, updateUserID := range updateList {
 		timestamp, ok := currentNotifications[updateUserID]
 		if !ok {
-			fmt.Println(fmt.Errorf("NotificationService.processUsers no UserID %d in map", updateUserID))
+			logger.Error("no userID in map", zap.Int64("user", updateUserID))
 			continue
 		}
 		err = ns.addUser(updateUserID, timestamp)
 		if err != nil {
-			fmt.Println(fmt.Errorf("NotificationService.processUsers addUser[%d]: %w", updateUserID, err))
+			logger.Error("handler", zap.Int64("addUser", updateUserID), zap.Error(err))
 		}
 	}
 
@@ -157,7 +158,7 @@ func (ns *NotificationService) RebuildQueue() error {
 	for key, val := range currentNotifications {
 		err = ns.addUser(key, val)
 		if err != nil {
-			fmt.Println(fmt.Errorf("NotificationService.RebuildQueue: %w", err))
+			logger.Error("", zap.Error(err))
 		}
 	}
 	return nil
