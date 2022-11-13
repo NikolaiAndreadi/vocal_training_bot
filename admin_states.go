@@ -239,7 +239,7 @@ func RecordCheerup(c tele.Context) error {
 		return fmt.Errorf("RecordCheerup[%d]: no RecordID in database", userID)
 	}
 
-	if c.Text() == "СТОП" {
+	if strings.ToLower(c.Text()) == "стоп" {
 		_, err := DB.Exec(context.Background(), `
 		INSERT INTO warmup_cheerups (record_id)
 		VALUES ($1 :: uuid)`, recordID)
@@ -249,7 +249,7 @@ func RecordCheerup(c tele.Context) error {
 		return nil
 	}
 
-	if c.Text() == "ОТМЕНА" {
+	if strings.ToLower(c.Text()) == "отмена" {
 		_, err := DB.Exec(context.Background(), `
 		DELETE FROM messages 
 		WHERE record_id = $1`, recordID)
@@ -274,7 +274,7 @@ func RecordWarmup(c tele.Context) error {
 		return fmt.Errorf("RecordWarmup[%d]: no RecordID in database", userID)
 	}
 
-	if c.Text() == "СТОП" {
+	if strings.ToLower(c.Text()) == "стоп" {
 		values := BotExt.GetStateVars(userID)
 		warmupGroup, ok := values["selectedWarmupGroup"]
 		if !ok {
@@ -297,7 +297,7 @@ func RecordWarmup(c tele.Context) error {
 		return nil
 	}
 
-	if c.Text() == "ОТМЕНА" {
+	if strings.ToLower(c.Text()) == "отмена" {
 		_, err := DB.Exec(context.Background(), `
 		DELETE FROM messages 
 		WHERE record_id = $1`, recordID)
@@ -322,14 +322,14 @@ func RecordOneTimeMessage(c tele.Context) error {
 		return fmt.Errorf("RecordOneTimeMessage[%d]: no RecordID in database", userID)
 	}
 
-	if c.Text() == "СТОП" {
+	if strings.ToLower(c.Text()) == "стоп" {
 		if err := c.Send("Отправка сообщений..."); err != nil {
 			logger.Error("can't send message", zap.Int64("user", userID), zap.Error(err))
 		}
 		return SendMessages(c.Bot(), recordID)
 	}
 
-	if c.Text() == "ОТМЕНА" {
+	if strings.ToLower(c.Text()) == "отмена" {
 		_, err := DB.Exec(context.Background(), `
 		DELETE FROM messages 
 		WHERE record_id = $1`, recordID)
