@@ -61,10 +61,14 @@ func InitBot(cfg Config) *tele.Bot {
 
 func onStart(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
+	c.Set("route", "onStart")
+	c.Set("userGroup", string(ug))
 	switch ug {
 	case UGAdmin:
 		return onAdminStart(c)
-	case UGUser, UGNewUser:
+	case UGUser:
+		return onUserStart(c)
+	case UGNewUser:
 		return onUserStart(c)
 	}
 	return nil
@@ -72,6 +76,9 @@ func onStart(c tele.Context) error {
 
 func onCallback(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
+	c.Set("route", "onCallback")
+	c.Set("userGroup", string(ug))
+
 	switch ug {
 	case UGAdmin:
 		return OnAdminInlineResult(c)
@@ -83,10 +90,15 @@ func onCallback(c tele.Context) error {
 
 func onText(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
+	c.Set("route", "onText")
+	c.Set("userGroup", string(ug))
+
 	switch ug {
 	case UGAdmin:
 		return onAdminText(c)
-	case UGUser, UGNewUser:
+	case UGUser:
+		return onUserText(c)
+	case UGNewUser:
 		return onUserText(c)
 	}
 	return nil
@@ -94,6 +106,9 @@ func onText(c tele.Context) error {
 
 func onMedia(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
+	c.Set("route", "onMedia")
+	c.Set("userGroup", string(ug))
+
 	switch ug {
 	case UGAdmin:
 		return onAdminMedia(c)
@@ -103,6 +118,9 @@ func onMedia(c tele.Context) error {
 
 func onContact(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
+	c.Set("route", "onContact")
+	c.Set("userGroup", string(ug))
+
 	switch ug {
 	case UGUser:
 		return onUserText(c)
@@ -112,6 +130,9 @@ func onContact(c tele.Context) error {
 
 func onCheckout(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
+	c.Set("route", "onCheckout")
+	c.Set("userGroup", string(ug))
+
 	switch ug {
 	case UGUser:
 		return onUserCheckout(c)

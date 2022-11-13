@@ -1,6 +1,9 @@
 package main
 
 import (
+	"time"
+
+	prom "github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
@@ -60,29 +63,53 @@ func MiddlewareLogger(logger *zap.Logger) tele.MiddlewareFunc {
 	if logger == nil {
 		panic("MiddlewareLogger: logger is nil")
 	}
+
+	handlerLatency := prom.NewSummaryVec(prom.SummaryOpts{
+		Name:       "handler_latency",
+		Help:       "latency of handler for user group and for success/fail",
+		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
+	}, []string{"route", "group", "status"})
+	prom.MustRegister(handlerLatency)
+
 	return func(next tele.HandlerFunc) tele.HandlerFunc {
 		return func(c tele.Context) error {
+			start := time.Now()
 			err := next(c)
-			var msgType string
-			if c.Message() != nil {
-				m := c.Message().Media()
-				if m != nil {
-					msgType = m.MediaType()
-				}
-			}
-			logger.Info(c.Text(),
-				zap.Int64("user", c.Sender().ID),
-				zap.String("data", c.Data()),
-				zap.String("type", msgType),
-			)
+			duration := time.Now().Sub(start).Seconds()
+			route, ok1 := c.Get("route").(string)
+			group, ok2 := c.Get("userGroup").(string)
+			status := "ok"
 			if err != nil {
-				logger.Error("",
-					zap.Int64("user", c.Sender().ID),
-					zap.Error(err),
-				)
+				status = "fail"
 			}
-			return err
+			if ok1 && ok2 {
+				handlerLatency.WithLabelValues(route, group, status).Observe(duration)
+			}
+
+			return logContext(c, logger, err)
 		}
 	}
 
+}
+
+func logContext(c tele.Context, logger *zap.Logger, err error) error {
+	var msgType string
+	if c.Message() != nil {
+		m := c.Message().Media()
+		if m != nil {
+			msgType = m.MediaType()
+		}
+	}
+	logger.Info(c.Text(),
+		zap.Int64("user", c.Sender().ID),
+		zap.String("data", c.Data()),
+		zap.String("type", msgType),
+	)
+	if err != nil {
+		logger.Error("",
+			zap.Int64("user", c.Sender().ID),
+			zap.Error(err),
+		)
+	}
+	return err
 }

@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"vocal_training_bot/BotExt"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -32,9 +34,17 @@ func main() {
 	RD = InitCacheConnection(cfg)
 	notificationService = NewNotificationService(RD, 10*time.Second)
 
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		for {
+			err := http.ListenAndServe(":2112", nil)
+			if err != nil {
+				logger.Error("metric server", zap.Error(err))
+			}
+		}
+	}()
+
 	userBot := InitBot(cfg)
-
 	notificationService.Start()
-
 	userBot.Start()
 }
