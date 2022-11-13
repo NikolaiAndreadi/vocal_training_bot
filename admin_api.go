@@ -76,6 +76,18 @@ func onAdminText(c tele.Context) error {
 		return nil
 	case "Кто нажал на 'Стать учеником'?":
 		return adminInlineMenus.Show(c, wannabeStudentResolutionMenu)
+	case "ОЧИСТИТЬ КЭШ":
+		err := RD.FlushAll().Err()
+		if err != nil {
+			logger.Error("can't FlushAll", zap.Error(err))
+			return c.Send("Не получилось очистить кэш!")
+		}
+		err = notificationService.RebuildQueue()
+		if err != nil {
+			logger.Error("can't RebuildQueue", zap.Error(err))
+			return c.Send("Не удалось обновить очередь напоминаний!")
+		}
+		return c.Send("Redis очищен")
 	}
 
 	err, ok := handleUserGroupChange(c)

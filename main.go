@@ -34,12 +34,6 @@ func main() {
 
 	userBot := InitBot(cfg)
 
-	// TODO
-	//err = notificationService.RebuildQueue()
-	//if err != nil {
-	//	fmt.Println(err.Error())
-	//}
-
 	notificationService.Start()
 
 	userBot.Start()
