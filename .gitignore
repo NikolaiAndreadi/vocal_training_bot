@@ -2,3 +2,4 @@
 .idea/*
 /message_storage/*
 config.yml
+log.log

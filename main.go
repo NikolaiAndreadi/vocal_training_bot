@@ -9,6 +9,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var notificationService *NotificationService
@@ -16,10 +18,19 @@ var logger *zap.Logger
 
 func main() {
 	var err error
-	logger, err = zap.NewProduction()
-	if err != nil {
-		panic(fmt.Errorf("main(): %w", err))
-	}
+	logSync := zapcore.AddSync(&lumberjack.Logger{
+		Filename:   "./log.log",
+		MaxSize:    500, // mb
+		MaxBackups: 3,
+		MaxAge:     14, // days
+		Compress:   true,
+	})
+	logCore := zapcore.NewCore(
+		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
+		logSync,
+		zap.InfoLevel,
+	)
+	logger = zap.New(logCore)
 	defer func() {
 		err = logger.Sync()
 		if err != nil {
