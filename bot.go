@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/jackc/pgx/v5"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -45,13 +46,13 @@ func InitBot(cfg Config) *tele.Bot {
 			return err
 		}
 
-		warmupID, err := getRandomCheerup()
-		if err != nil {
+		cheerupRecordID, err := getRandomCheerup()
+		if (err != nil) && (err == pgx.ErrNoRows) {
 			return fmt.Errorf("notificationService.handler: %w", err)
 		}
 
-		if warmupID != "" {
-			return SendMessageToUser(bot, userID, warmupID, false)
+		if cheerupRecordID != "" {
+			return SendMessageToUser(bot, userID, cheerupRecordID, false)
 		}
 		return nil
 	}

@@ -363,7 +363,11 @@ func warmupGroupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error)
 	}
 
 	if omap.Len() == 0 {
-		return nil, c.Send("Пока в этом разделе пусто... Скоро тут будет много интересного!")
+		err = c.Send("Пока в этом разделе пусто... Скоро тут будет много интересного!")
+		if err != nil {
+			logger.Error("can't send message", zap.Error(err))
+		}
+		return nil, BotExt.NoButtons
 	}
 
 	return omap, nil
@@ -411,7 +415,11 @@ func warmupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
 	}
 
 	if omap.Len() == 0 {
-		return nil, c.Send("Пока в этом разделе пусто... Скоро тут будет много интересного!")
+		err = c.Send("Пока в этом разделе пусто... Скоро тут будет много интересного!")
+		if err != nil {
+			logger.Error("can't send message", zap.Error(err))
+		}
+		return nil, BotExt.NoButtons
 	}
 
 	return omap, nil
