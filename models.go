@@ -242,7 +242,7 @@ func GetUserGroup(userID int64) (UserGroup, error) {
 		}
 		return UGNewUser, nil
 	}
-	return UGNewUser, fmt.Errorf("CheckUserGroup[%d] can't fetch UserGroup from pg: %w", userID, err)
+	return UGNewUser, fmt.Errorf("CheckUserGroup can't fetch UserGroup from pg: %w", err)
 }
 
 func SetUserGroup(userID int64, ug UserGroup) error {
@@ -252,7 +252,7 @@ func SetUserGroup(userID int64, ug UserGroup) error {
 				WHERE user_id = $2
 				`, string(ug), userID)
 	if err != nil {
-		return fmt.Errorf("SetUserGroup[%d]: can't change UserGroup: %w", userID, err)
+		return fmt.Errorf("SetUserGroup: can't change UserGroup: %w", err)
 	}
 	// update cache
 	if rdErr := RD.Del(strconv.FormatInt(userID, 10)).Err(); rdErr != nil {

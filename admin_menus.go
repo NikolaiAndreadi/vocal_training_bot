@@ -227,7 +227,7 @@ func warmupParamsFetcher(c tele.Context) (map[string]string, error) {
 	userID := c.Sender().ID
 	warmupID, ok := BotExt.GetStateVar(userID, "selectedWarmup")
 	if !ok {
-		return nil, fmt.Errorf("warmupParamsFetcher[%d]: can't fetch selectedWarmup", userID)
+		return nil, fmt.Errorf("warmupParamsFetcher: can't fetch selectedWarmup")
 	}
 
 	var warmupGroup, warmupName, warmupPrice string
@@ -236,7 +236,7 @@ func warmupParamsFetcher(c tele.Context) (map[string]string, error) {
 	INNER JOIN warmup_groups ON warmups.warmup_group = warmup_groups.warmup_group_id                                                    
 	WHERE warmup_id = $1`, warmupID).Scan(&warmupGroup, &warmupName, &warmupPrice)
 	if err != nil {
-		return nil, fmt.Errorf("warmupParamsFetcher[%d]: can't fetch %s warmup data: %w", userID, warmupID, err)
+		return nil, fmt.Errorf("warmupParamsFetcher: can't fetch %s warmup data: %w", warmupID, err)
 	}
 
 	out := make(map[string]string)

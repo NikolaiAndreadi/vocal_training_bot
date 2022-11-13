@@ -239,7 +239,7 @@ func RecordCheerup(c tele.Context) error {
 	userID := c.Sender().ID
 	recordID, ok := BotExt.GetStateVar(userID, "RecordID")
 	if !ok {
-		return fmt.Errorf("RecordCheerup[%d]: no RecordID in database", userID)
+		return fmt.Errorf("RecordCheerup: no RecordID in database")
 	}
 
 	if strings.ToLower(c.Text()) == "стоп" {
@@ -247,7 +247,7 @@ func RecordCheerup(c tele.Context) error {
 		INSERT INTO warmup_cheerups (record_id)
 		VALUES ($1 :: uuid)`, recordID)
 		if err != nil {
-			return fmt.Errorf("RecordCheerup[%d]: cannot update database, %w", userID, err)
+			return fmt.Errorf("RecordCheerup: cannot update database, %w", err)
 		}
 		return nil
 	}
@@ -257,7 +257,7 @@ func RecordCheerup(c tele.Context) error {
 		DELETE FROM messages 
 		WHERE record_id = $1`, recordID)
 		if err != nil {
-			return fmt.Errorf("RecordCheerup[%d]: cannot delete record, %w", userID, err)
+			return fmt.Errorf("RecordCheerup: cannot delete record, %w", err)
 		}
 		return nil
 	}
@@ -274,28 +274,28 @@ func RecordWarmup(c tele.Context) error {
 	userID := c.Sender().ID
 	recordID, ok := BotExt.GetStateVar(userID, "RecordID")
 	if !ok {
-		return fmt.Errorf("RecordWarmup[%d]: no RecordID in database", userID)
+		return fmt.Errorf("RecordWarmup: no RecordID in database")
 	}
 
 	if strings.ToLower(c.Text()) == "стоп" {
 		values := BotExt.GetStateVars(userID)
 		warmupGroup, ok := values["selectedWarmupGroup"]
 		if !ok {
-			return fmt.Errorf("RecordWarmup[%d]: can't fetch selectedWarmupGroup", userID)
+			return fmt.Errorf("RecordWarmup: can't fetch selectedWarmupGroup")
 		}
 		warmupName, ok := values["WarmupName"]
 		if !ok {
-			return fmt.Errorf("RecordWarmup[%d]: can't fetch WarmupName", userID)
+			return fmt.Errorf("RecordWarmup: can't fetch WarmupName")
 		}
 		warmupPrice, ok := values["WarmupPrice"]
 		if !ok {
-			return fmt.Errorf("RecordWarmup[%d]: can't fetch WarmupPrice", userID)
+			return fmt.Errorf("RecordWarmup: can't fetch WarmupPrice")
 		}
 		_, err := DB.Exec(context.Background(), `
 		INSERT INTO warmups (warmup_group, warmup_name, price, record_id)
 		VALUES ($1::int, $2, $3::int2, $4::uuid)`, warmupGroup, warmupName, warmupPrice, recordID)
 		if err != nil {
-			return fmt.Errorf("RecordWarmup[%d]: cannot update database, %w", userID, err)
+			return fmt.Errorf("RecordWarmup: cannot update database, %w", err)
 		}
 		return nil
 	}
@@ -305,7 +305,7 @@ func RecordWarmup(c tele.Context) error {
 		DELETE FROM messages 
 		WHERE record_id = $1`, recordID)
 		if err != nil {
-			return fmt.Errorf("RecordWarmup[%d]: cannot delete record, %w", userID, err)
+			return fmt.Errorf("RecordWarmup: cannot delete record, %w", err)
 		}
 		return nil
 	}
@@ -322,7 +322,7 @@ func RecordOneTimeMessage(c tele.Context) error {
 	userID := c.Sender().ID
 	recordID, ok := BotExt.GetStateVar(userID, "RecordID")
 	if !ok {
-		return fmt.Errorf("RecordOneTimeMessage[%d]: no RecordID in database", userID)
+		return fmt.Errorf("RecordOneTimeMessage: no RecordID in database")
 	}
 
 	if strings.ToLower(c.Text()) == "стоп" {
@@ -337,7 +337,7 @@ func RecordOneTimeMessage(c tele.Context) error {
 		DELETE FROM messages 
 		WHERE record_id = $1`, recordID)
 		if err != nil {
-			return fmt.Errorf("RecordOneTimeMessage[%d]: cannot delete record, %w", userID, err)
+			return fmt.Errorf("RecordOneTimeMessage: cannot delete record, %w", err)
 		}
 		return nil
 	}
@@ -396,7 +396,7 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 		VALUES ($1 :: uuid, $2, $3, $4, $5, $6, $7)`,
 		recordID, messageID, chatID, albumID, mediaType, messageText, strMediaJSON)
 	if err != nil {
-		return fmt.Errorf("saveMessageToDBandDisk[%d]: cannot update database, %w", userID, err)
+		return fmt.Errorf("saveMessageToDBandDisk: cannot update database, %w", err)
 	}
 	return nil
 }
@@ -522,7 +522,7 @@ func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool)
 	}
 
 	if len(BakedMessage) == 0 {
-		return fmt.Errorf("SendMessageToUser[%d]: can't find record %s", userID, recordID)
+		return fmt.Errorf("SendMessageToUser: can't find record %s", recordID)
 	}
 
 	user := UserIDType{userID}
