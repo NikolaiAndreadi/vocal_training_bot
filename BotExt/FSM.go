@@ -9,13 +9,17 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
+// ContinueState used in State.Manipulator to not end current state and wait for further messages from user
 var ContinueState = errors.New("__CONTINUE__")
 
+// FSM is a base structure to manage all existing states. Used in conjunction with InlineMenus, as their content
+// can be updated by the state
 type FSM struct {
 	stateMap map[string]*State
 	menus    *InlineMenusType
 }
 
+// NewFiniteStateMachine is a constructor for FSM. One can create separate FSMs for different user groups (admins, users...)
 func NewFiniteStateMachine(ims *InlineMenusType) *FSM {
 	return &FSM{
 		stateMap: make(map[string]*State),
@@ -23,18 +27,17 @@ func NewFiniteStateMachine(ims *InlineMenusType) *FSM {
 	}
 }
 
+// RegisterStateChain creates linked list of states, that executes one after another
 func (f *FSM) RegisterStateChain(states []*State) error {
 	if len(states) == 0 {
 		return fmt.Errorf("RegisterStates: no states specified")
 	}
-
 	// validate that every stateName is implemented
 	for i, s := range states {
 		if _, ok := f.stateMap[s.Name]; ok {
 			return fmt.Errorf("RegisterStateChain: state %s already registered", s.Name)
 		}
 		s.fsm = f
-		s.menus = f.menus
 		f.stateMap[s.Name] = s
 		// fill next
 		if i != 0 {
@@ -46,16 +49,17 @@ func (f *FSM) RegisterStateChain(states []*State) error {
 	return nil
 }
 
+// RegisterOneShotState - creates single state
 func (f *FSM) RegisterOneShotState(s *State) error {
 	if _, ok := f.stateMap[s.Name]; ok {
 		return fmt.Errorf("RegisterOneShotState: state %s already registered", s.Name)
 	}
 	s.fsm = f
-	s.menus = f.menus
 	f.stateMap[s.Name] = s
 	return nil
 }
 
+// Trigger - starting point of State. byMenu is used if States starting in menu with content that can be changed
 func (f *FSM) Trigger(c tele.Context, stateName string, byMenu ...string) {
 	state, ok := f.stateMap[stateName]
 	if !ok {
@@ -68,6 +72,7 @@ func (f *FSM) Trigger(c tele.Context, stateName string, byMenu ...string) {
 	state.Trigger(c)
 }
 
+// Update starts cycle of Validation and data Manipulation for the State
 func (f *FSM) Update(c tele.Context) {
 	stateName := getState(c.Sender().ID)
 	if stateName == "" {
@@ -80,20 +85,25 @@ func (f *FSM) Update(c tele.Context) {
 	state.Update(c)
 }
 
+// GetCurrentState extracts current state from the database
 func (f *FSM) GetCurrentState(c tele.Context) string {
 	return getState(c.Sender().ID)
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// State definition
 
-// State is a chain element in Finite State Machine implementation
+// State is a chain element in FSM implementation
 //   - Name required for logging
-//   - validator is a function that validates user input
-//   - manipulator is a function that changes data in database
-//   - onTrigger - string or telebot.Sendable, should be telebot.Context.Send to user on state trigger
-//   - onTriggerExtra - variadic argument of telebot.Context.Send. Can be *telebot.SendOptions, *telebot.ReplyMarkup,
-//     telebot.Option, telebot.ParseMode, telebot.Entities
-//   - next is a next state in chain. If empty - end of the chain
+//   - Validator is a function that validates user input
+//     validator returns "" if validation is successful, otherwise - it is an error message for user
+//   - Manipulator is a function that changes data in database
+//   - OnTrigger - string or telebot.Sendable, will be telebot.Context.Send to user
+//   - OnTriggerExtra - variadic argument of telebot.Context.Send. Can be *telebot.SendOptions, *telebot.ReplyMarkup...
+//     if OnTriggerExtra is string -> it is trigger for menu rendering
+//   - OnSuccess -  string or telebot.Sendable, will be telebot.Context.Send to user after State completion
+//   - OnQuitExtra - variadic argument of telebot.Context.Send. Can be *telebot.SendOptions, *telebot.ReplyMarkup...
+//     this would be executed even on not successful run
+//   - KeepVarsOnQuit - should StateVars be cleared after completion?
 type State struct {
 	Name string
 
@@ -106,8 +116,9 @@ type State struct {
 	OnSuccess   interface{}
 	OnQuitExtra []interface{}
 
+	KeepVarsOnQuit bool
+
 	fsm         *FSM
-	menus       *InlineMenusType
 	next        string
 	menuTrigger string // "" if no menu
 
@@ -117,20 +128,21 @@ type State struct {
 func (s *State) Trigger(c tele.Context) {
 	setState(c.Sender().ID, s.Name)
 	var err error
-	if s.OnTriggerExtra == nil {
-		err = c.Send(s.OnTrigger)
-	} else {
+	if s.OnTriggerExtra != nil {
 		if len(s.OnTriggerExtra) == 1 {
+			// if OnTriggerExtra is string -> it is trigger for menu rendering
 			switch ote := s.OnTriggerExtra[0].(type) {
 			case string:
 				_ = c.Send(s.OnTrigger)
-				err = s.menus.Show(c, ote)
+				err = s.fsm.menus.Show(c, ote)
 			default:
 				err = c.Send(s.OnTrigger, ote)
 			}
 		} else {
 			err = c.Send(s.OnTrigger, s.OnTriggerExtra...)
 		}
+	} else {
+		err = c.Send(s.OnTrigger)
 	}
 	if err != nil {
 		logger.Error("can't send a message", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
@@ -167,7 +179,7 @@ func (s *State) Update(c tele.Context) {
 				logger.Error("can't send manipulator2", zap.Int64("UserID", c.Sender().ID), zap.Error(err2))
 			}
 			logger.Error("can't send manipulator", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
-			ResetState(c.Sender().ID)
+			ResetState(c.Sender().ID, s.KeepVarsOnQuit)
 			return
 		}
 	}
@@ -195,7 +207,7 @@ func (s *State) Update(c tele.Context) {
 	}
 
 	if s.next == "" {
-		ResetState(c.Sender().ID)
+		ResetState(c.Sender().ID, s.KeepVarsOnQuit)
 	} else {
 		s.fsm.Trigger(c, s.next)
 	}

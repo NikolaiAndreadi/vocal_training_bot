@@ -47,7 +47,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 		Unique:         "Cancel",
 		TextOnCreation: "Отмена",
 		OnClick: func(c tele.Context) error {
-			BotExt.ResetState(c.Sender().ID)
+			BotExt.ResetState(c.Sender().ID, false)
 			if err := c.Send("OK", MainUserMenu); err != nil {
 				logger.Error("can't send OK button", zap.Int64("userID", c.Sender().ID), zap.Error(err))
 			}

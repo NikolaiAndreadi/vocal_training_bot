@@ -9,18 +9,24 @@ import (
 	"go.uber.org/zap"
 )
 
-var DB *pgxpool.Pool
-var logger *zap.Logger
+// variables from outer scope. Use SetVars to set them up
+var (
+	DB     *pgxpool.Pool
+	logger *zap.Logger
+)
 
+// NoState will be returned if there are no rows in state database
 const NoState = ""
 
-///////////////////////////////////////////////// STATE FUNCTIONS
-
+// SetVars sets up global vars for BotExt package
 func SetVars(db *pgxpool.Pool, l *zap.Logger) {
 	DB = db
 	logger = l
 }
 
+// STATE RELATED FUNCTIONS
+
+// setState defines current state for user
 func setState(userID int64, stateName string) {
 	_, err := DB.Exec(context.Background(), `
 		INSERT INTO states (user_id, state) 
@@ -37,6 +43,7 @@ func setState(userID int64, stateName string) {
 	}
 }
 
+// setState extract current state for user from database
 func getState(userID int64) (stateName string) {
 	err := DB.QueryRow(context.Background(),
 		"SELECT state FROM states WHERE user_id = $1", userID).Scan(&stateName)
@@ -51,6 +58,7 @@ func getState(userID int64) (stateName string) {
 	return
 }
 
+// HasState returns true if user have some state
 func HasState(UserID int64) bool {
 	var state string
 	err := DB.QueryRow(context.Background(), "SELECT state from states where user_id = $1", UserID).Scan(&state)
@@ -60,13 +68,17 @@ func HasState(UserID int64) bool {
 	return false
 }
 
-func ResetState(userID int64) {
+// ResetState empties state column in database
+func ResetState(userID int64, keepVars bool) {
 	setState(userID, NoState)
-	//clearStateVars(userID)
+	if !keepVars {
+		ClearStateVars(userID)
+	}
 }
 
-///////////////////////////////////////////////// STATE VARIABLES FUNCTIONS
+// STATE VARIABLE RELATED FUNCTIONS
 
+// SetStateVar sets variable related to state in jsonb format
 func SetStateVar(userID int64, varName string, varValue string) {
 	_, err := DB.Exec(context.Background(), `
 		UPDATE states
@@ -79,6 +91,7 @@ func SetStateVar(userID int64, varName string, varValue string) {
 	}
 }
 
+// GetStateVar extracts variable related to state if it exists (ok return value)
 func GetStateVar(userID int64, varName string) (value string, ok bool) {
 	err := DB.QueryRow(context.Background(), `
 		SELECT temp_vars->>$1 FROM states
@@ -93,6 +106,7 @@ func GetStateVar(userID int64, varName string) (value string, ok bool) {
 	return value, true
 }
 
+// GetStateVars returns all state variables related to user
 func GetStateVars(userID int64) (values map[string]string) {
 	var strJSON []byte
 
@@ -117,7 +131,8 @@ func GetStateVars(userID int64) (values map[string]string) {
 	return
 }
 
-func clearStateVars(userID int64) {
+// ClearStateVars empties all state variables related to user
+func ClearStateVars(userID int64) {
 	_, err := DB.Exec(context.Background(), `
 		UPDATE states
 		SET temp_vars = '{}'::jsonb
@@ -127,8 +142,9 @@ func clearStateVars(userID int64) {
 	}
 }
 
-/////////////////////////////////////////////////////////////////// MessageID functions
+// MESSAGE ID  FUNCTIONS
 
+// setMessageID saves id to states database, used to update menu content after some action
 func setMessageID(userID int64, msgID int) {
 	_, err := DB.Exec(context.Background(), `
 		INSERT INTO states (user_id, message_id) 
@@ -141,6 +157,7 @@ func setMessageID(userID int64, msgID int) {
 	}
 }
 
+// getMessageID extracts message id from database (if exists)
 func getMessageID(userID int64) (msgID int, ok bool) {
 	err := DB.QueryRow(context.Background(),
 		"SELECT message_id FROM states WHERE user_id = $1", userID).Scan(&msgID)
