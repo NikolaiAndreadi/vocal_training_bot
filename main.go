@@ -34,7 +34,7 @@ func main() {
 
 	logCore := zapcore.NewTee(
 		zapcore.NewCore(fileEncoder, logSync, zap.InfoLevel),
-		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zap.InfoLevel),
+		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zap.DebugLevel),
 	)
 
 	logger = zap.New(logCore)

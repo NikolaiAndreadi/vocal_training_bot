@@ -115,10 +115,16 @@ func OnAdminInlineResult(c tele.Context) error {
 	userID := c.Sender().ID
 	switch triggeredItem {
 	case wannabeStudentResolutionMenu:
-		if userID, err := strconv.ParseInt(triggeredID, 10, 64); err == nil {
-			return resolveWannabeStudent(c, userID)
+		userID_, err := strconv.ParseInt(triggeredID, 10, 64)
+		if err != nil {
+			logger.Error("can't parse userID", zap.Error(err))
 		}
-		return fmt.Errorf("OnAdminInlineResult: %s: can't parse userID", wannabeStudentResolutionMenu)
+		err = resolveWannabeStudent(c, userID_)
+		if err != nil {
+			logger.Error("can't resolve WannabeStudent", zap.Error(err))
+		}
+		return c.Respond()
+
 	case warmupGroupAdminMenu:
 		BotExt.SetStateVar(userID, "selectedWarmupGroup", triggeredID)
 		if adminFSM.GetCurrentState(c) == AdminSGAddWarmup {
