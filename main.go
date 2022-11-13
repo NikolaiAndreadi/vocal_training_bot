@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"vocal_training_bot/BotExt"
@@ -25,11 +26,17 @@ func main() {
 		MaxAge:     14, // days
 		Compress:   true,
 	})
-	logCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig()),
-		logSync,
-		zap.InfoLevel,
+
+	encoder := zap.NewProductionEncoderConfig()
+	encoder.EncodeTime = zapcore.ISO8601TimeEncoder
+	fileEncoder := zapcore.NewJSONEncoder(encoder)
+	consoleEncoder := zapcore.NewConsoleEncoder(encoder)
+
+	logCore := zapcore.NewTee(
+		zapcore.NewCore(fileEncoder, logSync, zap.InfoLevel),
+		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zap.InfoLevel),
 	)
+
 	logger = zap.New(logCore)
 	defer func() {
 		err = logger.Sync()
