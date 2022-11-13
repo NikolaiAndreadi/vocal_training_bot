@@ -126,7 +126,8 @@ type State struct {
 
 // Trigger is a method to start a State for specific user.
 func (s *State) Trigger(c tele.Context) {
-	setState(c.Sender().ID, s.Name)
+	userID := c.Sender().ID
+	setState(userID, s.Name)
 	var err error
 	if s.OnTriggerExtra != nil {
 		if len(s.OnTriggerExtra) == 1 {
@@ -134,7 +135,9 @@ func (s *State) Trigger(c tele.Context) {
 			switch ote := s.OnTriggerExtra[0].(type) {
 			case string:
 				_ = c.Send(s.OnTrigger)
+				oldMsgID, _ := getMessageID(userID)
 				err = s.fsm.menus.Show(c, ote)
+				setMessageID(userID, oldMsgID)
 			default:
 				err = c.Send(s.OnTrigger, ote)
 			}
@@ -145,7 +148,7 @@ func (s *State) Trigger(c tele.Context) {
 		err = c.Send(s.OnTrigger)
 	}
 	if err != nil {
-		logger.Error("can't send a message", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
+		logger.Error("can't send a message", zap.Int64("UserID", userID), zap.Error(err))
 	}
 }
 

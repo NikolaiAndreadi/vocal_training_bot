@@ -151,9 +151,9 @@ func wannabeStudentResolutionFetcher(c tele.Context) (*om.OrderedMap[string, str
 	}
 
 	if omap.Len() == 0 {
-		err2 := c.Send("Активных заявок нет")
-		if err2 != nil {
-			logger.Error("can't send message", zap.Error(err2))
+		err := c.Send("Активных заявок нет")
+		if err != nil {
+			logger.Error("can't send message", zap.Error(err))
 		}
 		return nil, BotExt.NoButtons
 	}
@@ -182,7 +182,11 @@ func warmupGroupAdminFetcher(c tele.Context) (*om.OrderedMap[string, string], er
 	}
 
 	if omap.Len() == 0 {
-		return nil, c.Send("Категорий распевок пока нет")
+		err = c.Send("Категорий распевок пока нет")
+		if err != nil {
+			logger.Error("can't send message", zap.Error(err))
+		}
+		return nil, BotExt.NoButtons
 	}
 
 	return omap, nil
@@ -209,7 +213,11 @@ func warmupListFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
 	}
 
 	if omap.Len() == 0 {
-		return nil, c.Send("Пока распевок нет")
+		err = c.Send("Пока распевок нет")
+		if err != nil {
+			logger.Error("can't send message", zap.Error(err))
+		}
+		return nil, BotExt.NoButtons
 	}
 
 	return omap, nil
