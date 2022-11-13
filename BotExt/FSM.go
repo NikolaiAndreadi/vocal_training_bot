@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -58,7 +59,7 @@ func (f *FSM) RegisterOneShotState(s *State) error {
 func (f *FSM) Trigger(c tele.Context, stateName string, byMenu ...string) {
 	state, ok := f.stateMap[stateName]
 	if !ok {
-		fmt.Println(fmt.Errorf("BotExt.Trigger[%d]: no such state '%s'", c.Sender().ID, stateName))
+		logger.Error("no such state", zap.Int64("UserID", c.Sender().ID), zap.String("stateName", stateName))
 		return
 	}
 	if len(byMenu) != 0 {
@@ -74,7 +75,7 @@ func (f *FSM) Update(c tele.Context) {
 	}
 	state, ok := f.stateMap[stateName]
 	if !ok {
-		fmt.Println(fmt.Errorf("BotExt.Update[%d]: stateName '%s' from database is corrupted", c.Sender().ID, stateName))
+		logger.Error("state from db is corrupted", zap.Int64("UserID", c.Sender().ID), zap.String("stateName", stateName))
 	}
 	state.Update(c)
 }
@@ -132,7 +133,7 @@ func (s *State) Trigger(c tele.Context) {
 		}
 	}
 	if err != nil {
-		fmt.Println(fmt.Errorf("state %s.Trigger[%d]: can't send a message: %w", s.Name, c.Sender().ID, err))
+		logger.Error("can't send a message", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
 	}
 }
 
@@ -143,7 +144,7 @@ func (s *State) Update(c tele.Context) {
 		if errString != "" {
 			err := c.Send(errString)
 			if err != nil {
-				fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send validation error message: %w", s.Name, c.Sender().ID, err))
+				logger.Error("can't send validation", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
 			}
 			return
 		}
@@ -163,9 +164,9 @@ func (s *State) Update(c tele.Context) {
 				err2 = c.Send(text)
 			}
 			if err2 != nil {
-				fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send a manipulator message: %w", s.Name, c.Sender().ID, err))
+				logger.Error("can't send manipulator2", zap.Int64("UserID", c.Sender().ID), zap.Error(err2))
 			}
-			fmt.Println(fmt.Errorf("state %s.Update[%d]: manipulator: %w", s.Name, c.Sender().ID, err))
+			logger.Error("can't send manipulator", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
 			ResetState(c.Sender().ID)
 			return
 		}
@@ -176,7 +177,7 @@ func (s *State) Update(c tele.Context) {
 		if msgID, ok := getMessageID(c.Sender().ID); ok {
 			menu.Update(c, strconv.Itoa(msgID))
 		} else {
-			fmt.Println(fmt.Errorf("state %s.Update[%d]: can't fetch menuMessageID from db", s.Name, c.Sender().ID))
+			logger.Error("can't fetch menuMessageID from db", zap.Int64("UserID", c.Sender().ID), zap.String("state", s.Name))
 		}
 	}
 
@@ -188,7 +189,8 @@ func (s *State) Update(c tele.Context) {
 			err = c.Send(s.OnSuccess, s.OnQuitExtra...)
 		}
 		if err != nil {
-			fmt.Println(fmt.Errorf("state %s.Update[%d]: can't send success message: %w", s.Name, c.Sender().ID, err))
+			logger.Error("can't send success msg", zap.Int64("UserID", c.Sender().ID),
+				zap.String("state", s.Name), zap.Error(err))
 		}
 	}
 

@@ -28,7 +28,7 @@ func main() {
 	cfg := ParseConfig()
 
 	DB = InitDbConnection(cfg)
-	BotExt.SetDatabaseEntry(DB)
+	BotExt.SetVars(DB, logger)
 	RD = InitCacheConnection(cfg)
 	notificationService = NewNotificationService(RD, 10*time.Second)
 

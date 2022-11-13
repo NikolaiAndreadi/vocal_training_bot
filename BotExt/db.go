@@ -3,20 +3,22 @@ package BotExt
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 )
 
 var DB *pgxpool.Pool
+var logger *zap.Logger
 
 const NoState = ""
 
 ///////////////////////////////////////////////// STATE FUNCTIONS
 
-func SetDatabaseEntry(db *pgxpool.Pool) {
+func SetVars(db *pgxpool.Pool, l *zap.Logger) {
 	DB = db
+	logger = l
 }
 
 func setState(userID int64, stateName string) {
@@ -30,7 +32,8 @@ func setState(userID int64, stateName string) {
 		if stateName == NoState {
 			stateName = "NoState"
 		}
-		fmt.Println(fmt.Errorf("BotExt: setStateToDB[%d], stateName '%s': postgres exec error %w", userID, stateName, err))
+		logger.Error("pg exec error", zap.Int64("UserID", userID),
+			zap.String("state", stateName), zap.Error(err))
 	}
 }
 
@@ -42,7 +45,7 @@ func getState(userID int64) (stateName string) {
 		err = nil
 	}
 	if err != nil {
-		fmt.Println(fmt.Errorf("getStateFromDB[%d]: postgres QueryRow error %w", userID, err))
+		logger.Error("pg query error", zap.Int64("UserID", userID), zap.Error(err))
 		return
 	}
 	return
@@ -71,8 +74,8 @@ func SetStateVar(userID int64, varName string, varValue string) {
 		WHERE user_id = $3
 	`, varName, varValue, userID)
 	if err != nil {
-		fmt.Println(fmt.Errorf("BotExt: setStateVarToDB[%d], varName %s, varValue %s: postgres QueryRow error %w",
-			userID, varName, varValue, err))
+		logger.Error("pg exec error", zap.Int64("UserID", userID),
+			zap.String("varName", varName), zap.String("varValue", varValue), zap.Error(err))
 	}
 }
 
@@ -101,13 +104,13 @@ func GetStateVars(userID int64) (values map[string]string) {
 		return
 	}
 	if err != nil {
-		fmt.Println(fmt.Errorf("GetStateVars[%d]: postgres QueryRow error %w", userID, err))
+		logger.Error("pg query error", zap.Int64("UserID", userID), zap.Error(err))
 		return
 	}
 
 	err = json.Unmarshal(strJSON, &values)
 	if err != nil {
-		fmt.Println(fmt.Errorf("GetStateVars[%d]: json.Unmarshall error %w", userID, err))
+		logger.Error("unmarshal error", zap.Int64("UserID", userID), zap.ByteString("strJSON", strJSON), zap.Error(err))
 		return
 	}
 
@@ -120,7 +123,7 @@ func clearStateVars(userID int64) {
 		SET temp_vars = '{}'::jsonb
 		WHERE user_id = $1`, userID)
 	if err != nil {
-		fmt.Println(fmt.Errorf("ClearStateVars[%d]: postgres exec error %w", userID, err))
+		logger.Error("pg exec error", zap.Int64("UserID", userID), zap.Error(err))
 	}
 }
 
@@ -134,8 +137,7 @@ func setMessageID(userID int64, msgID int) {
 			SET message_id = excluded.message_id 
 		`, userID, msgID)
 	if err != nil {
-		fmt.Println(fmt.Errorf("BotExt: setMessageID[%d], messageID '%d': postgres exec error %w", userID, msgID, err))
-
+		logger.Error("pg exec error", zap.Int64("UserID", userID), zap.Int("msgID", msgID), zap.Error(err))
 	}
 }
 
@@ -146,7 +148,7 @@ func getMessageID(userID int64) (msgID int, ok bool) {
 		err = nil
 	}
 	if err != nil {
-		fmt.Println(fmt.Errorf("getMessageID[%d]: postgres QueryRow error %w", userID, err))
+		logger.Error("pg query error", zap.Int64("UserID", userID), zap.Error(err))
 		return
 	}
 	ok = true

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	om "github.com/wk8/go-ordered-map/v2"
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
 
@@ -22,7 +23,7 @@ func (ims *InlineMenusType) GetInlineMenu(name string) *InlineMenu {
 	if menu, ok := ims.menus[name]; ok {
 		return menu
 	}
-	fmt.Println(fmt.Errorf("InlineMenusType.Update: can't find menu '%s'", name))
+	logger.Error("can't find inline menu", zap.String("menuName", name))
 	return nil
 }
 
@@ -32,10 +33,10 @@ func (ims *InlineMenusType) Update(c tele.Context, name string) {
 		if msgID, ok := getMessageID(userID); ok {
 			menu.Update(c, strconv.Itoa(msgID))
 		} else {
-			fmt.Println(fmt.Errorf("ims.Update[%d]: can't fetch menuMessageID from db for menu %s", userID, name))
+			logger.Error("can't menu message id from db", zap.Int64("userID", userID), zap.String("menuName", name))
 		}
 	} else {
-		fmt.Println(fmt.Errorf("InlineMenusType.Update: can't find menu '%s'", name))
+		logger.Error("can't find inline menu", zap.Int64("userID", userID), zap.String("menuName", name))
 	}
 }
 
@@ -196,8 +197,8 @@ func (im *InlineMenu) Update(c tele.Context, msgID string) {
 	}
 	_, err := c.Bot().Edit(msg, im.header, menu)
 	if (err != nil) && (err != tele.ErrSameMessageContent) {
-		fmt.Println(fmt.Errorf("InlineMenu.Update[%d]: can't update menu '%s' to messageID %s: %w",
-			c.Sender().ID, im.Name, msgID, err))
+		logger.Error("can't update inline menu", zap.Int64("userID", c.Sender().ID),
+			zap.String("menuName", im.Name), zap.String("messageID", msgID), zap.Error(err))
 	}
 }
 
@@ -205,13 +206,13 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 	if im.dataFetcher == nil {
 		err := im.dynamicBake(c)
 		if err != nil {
-			fmt.Println(fmt.Errorf("InlineMenu.Update: cant dynamicBake: %w", err))
+			logger.Error("can't dynamicBake", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
 		}
 		return im.menuCarcass
 	}
 	dynamicContentMap, err := im.dataFetcher(c)
 	if err != nil {
-		fmt.Println(fmt.Errorf("InlineMenu.bake[%d]:can't fetch data from database: %w", c.Sender().ID, err))
+		logger.Error("can't fetch data from db", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
 	}
 
 	if dynamicContentMap == nil {
@@ -226,7 +227,7 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 			}
 			content, err := f(c, dynamicContentMap)
 			if err != nil {
-				fmt.Println(fmt.Errorf("InlineMenu.bake[%d]: can't change value for button: %w", c.Sender().ID, err))
+				logger.Error("can't change val for button", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
 			}
 			im.menuCarcass.InlineKeyboard[i][j].Text = content
 		}
