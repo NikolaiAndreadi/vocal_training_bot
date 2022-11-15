@@ -58,6 +58,7 @@ func (ims *InlineMenusType) RegisterMenu(bot *tele.Bot, menu *InlineMenu) error 
 
 // Show will render user-specific menu
 func (ims *InlineMenusType) Show(c tele.Context, menuName string) error {
+	c.Set("menu", menuName)
 	menu, ok := ims.menus[menuName]
 	if !ok {
 		return fmt.Errorf("InlineMenusType.Show: menu %s is not registered", menuName)

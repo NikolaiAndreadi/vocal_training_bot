@@ -64,11 +64,40 @@ func MiddlewareLogger(logger *zap.Logger) tele.MiddlewareFunc {
 		panic("MiddlewareLogger: logger is nil")
 	}
 
+	return func(next tele.HandlerFunc) tele.HandlerFunc {
+		return func(c tele.Context) error {
+			var msgType string
+			if c.Message() != nil {
+				m := c.Message().Media()
+				if m != nil {
+					msgType = m.MediaType()
+				}
+			}
+			logger.Info(c.Text(),
+				zap.Int64("user", c.Sender().ID),
+				zap.String("data", c.Data()),
+				zap.String("type", msgType),
+			)
+
+			err := next(c)
+
+			if err != nil {
+				logger.Error("",
+					zap.Int64("user", c.Sender().ID),
+					zap.Error(err),
+				)
+			}
+			return err
+		}
+	}
+}
+
+func MiddlewareMetrics() tele.MiddlewareFunc {
 	handlerLatency := prom.NewSummaryVec(prom.SummaryOpts{
 		Name:       "handler_latency",
-		Help:       "latency of handler for user group and for success/fail",
+		Help:       "latency of handler for route, state, menu and for success/fail",
 		Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-	}, []string{"route", "group", "status"})
+	}, []string{"route", "state", "menu", "status"})
 	prom.MustRegister(handlerLatency)
 
 	return func(next tele.HandlerFunc) tele.HandlerFunc {
@@ -76,40 +105,26 @@ func MiddlewareLogger(logger *zap.Logger) tele.MiddlewareFunc {
 			start := time.Now()
 			err := next(c)
 			duration := time.Now().Sub(start).Seconds()
-			route, ok1 := c.Get("route").(string)
-			group, ok2 := c.Get("userGroup").(string)
+
+			route, ok := c.Get("route").(string)
+			if !ok {
+				route = "NoRoute"
+			}
+			state, ok := c.Get("state").(string)
+			if !ok {
+				state = "NoState"
+			}
+			menu, ok := c.Get("menu").(string)
+			if !ok {
+				menu = "NoMenu"
+			}
 			status := "ok"
 			if err != nil {
 				status = "fail"
 			}
-			if ok1 && ok2 {
-				handlerLatency.WithLabelValues(route, group, status).Observe(duration)
-			}
+			handlerLatency.WithLabelValues(route, state, menu, status).Observe(duration)
 
-			return logContext(c, logger, err)
+			return err
 		}
 	}
-
-}
-
-func logContext(c tele.Context, logger *zap.Logger, err error) error {
-	var msgType string
-	if c.Message() != nil {
-		m := c.Message().Media()
-		if m != nil {
-			msgType = m.MediaType()
-		}
-	}
-	logger.Info(c.Text(),
-		zap.Int64("user", c.Sender().ID),
-		zap.String("data", c.Data()),
-		zap.String("type", msgType),
-	)
-	if err != nil {
-		logger.Error("",
-			zap.Int64("user", c.Sender().ID),
-			zap.Error(err),
-		)
-	}
-	return err
 }

@@ -154,6 +154,7 @@ func (s *State) Trigger(c tele.Context) {
 
 // Update is a function to process current state
 func (s *State) Update(c tele.Context) {
+	c.Set("state", s.Name)
 	if s.Validator != nil {
 		errString := s.Validator(c)
 		if errString != "" {

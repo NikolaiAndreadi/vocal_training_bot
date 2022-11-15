@@ -28,7 +28,7 @@ func InitBot(cfg Config) *tele.Bot {
 		panic(fmt.Errorf("InitBot: %w", err))
 	}
 
-	bot.Use(MiddlewareLogger(logger))
+	bot.Use(MiddlewareMetrics(), MiddlewareLogger(logger))
 
 	bot.Handle("/start", onStart)
 	bot.Handle(tele.OnText, onText)
@@ -63,80 +63,69 @@ func InitBot(cfg Config) *tele.Bot {
 func onStart(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
 	c.Set("route", "onStart")
-	c.Set("userGroup", string(ug))
 	switch ug {
 	case UGAdmin:
 		return onAdminStart(c)
 	case UGUser:
 		return onUserStart(c)
 	case UGNewUser:
-		return onUserStart(c)
+		return onUnregisteredStart(c)
 	}
-	return nil
+	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }
 
 func onCallback(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
 	c.Set("route", "onCallback")
-	c.Set("userGroup", string(ug))
-
 	switch ug {
 	case UGAdmin:
 		return OnAdminInlineResult(c)
 	case UGUser:
 		return OnUserInlineResult(c)
 	}
-	return nil
+	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }
 
 func onText(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
 	c.Set("route", "onText")
-	c.Set("userGroup", string(ug))
-
 	switch ug {
 	case UGAdmin:
 		return onAdminText(c)
 	case UGUser:
 		return onUserText(c)
 	case UGNewUser:
-		return onUserText(c)
+		return onUnregisteredText(c)
 	}
-	return nil
+	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }
 
 func onMedia(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
 	c.Set("route", "onMedia")
-	c.Set("userGroup", string(ug))
-
 	switch ug {
 	case UGAdmin:
 		return onAdminMedia(c)
 	}
-	return nil
+	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }
 
 func onContact(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
 	c.Set("route", "onContact")
-	c.Set("userGroup", string(ug))
-
 	switch ug {
 	case UGUser:
 		return onUserText(c)
 	}
-	return nil
+	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }
 
 func onCheckout(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
 	c.Set("route", "onCheckout")
-	c.Set("userGroup", string(ug))
-
 	switch ug {
 	case UGUser:
 		return onUserCheckout(c)
 	}
-	return nil
+	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }

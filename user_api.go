@@ -55,12 +55,10 @@ func OnUserInlineResult(c tele.Context) error {
 }
 
 func onUserStart(c tele.Context) error {
-	userID := c.Sender().ID
+	return c.Reply("Привет! Ты зарегистрирован в боте, тебе доступна его функциональность!", MainUserMenu)
+}
 
-	if ok := UserIsInDatabase(userID); ok {
-		return c.Reply("Привет! Ты зарегистрирован в боте, тебе доступна его функциональность!", MainUserMenu)
-	}
-
+func onUnregisteredStart(c tele.Context) error {
 	userFSM.Trigger(c, SurveySGStartSurveyReqName)
 	return nil
 }
@@ -119,16 +117,21 @@ func onUserCheckout(c tele.Context) error {
 	return c.Bot().Accept(checkout)
 }
 
+func onUnregisteredText(c tele.Context) error {
+	if ok := BotExt.HasState(c.Sender().ID); ok {
+		userFSM.Update(c)
+		return nil
+	}
+
+	return nil
+}
+
 func onUserText(c tele.Context) error {
 	userID := c.Sender().ID
 
 	if ok := BotExt.HasState(userID); ok {
 		userFSM.Update(c)
 		return nil
-	}
-
-	if ok := UserIsInDatabase(userID); !ok {
-		return c.Send("Сначала надо пройти опрос.")
 	}
 
 	switch c.Text() {
