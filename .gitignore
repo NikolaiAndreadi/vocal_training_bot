@@ -3,3 +3,4 @@
 /message_storage/*
 config.yml
 log.log
+docker.env

@@ -22,7 +22,7 @@ type Config struct {
 	} `yaml:"Bot"`
 
 	Pg struct {
-		Host   string `yaml:"Host" envconfig:"PG_HOST" validate:"nonzero"`
+		Host   string `yaml:"Host" envconfig:"PG_HOST" validate:"nonzero" default:"localhost"`
 		Port   string `yaml:"Port" envconfig:"PG_PORT" validate:"nonzero"`
 		User   string `yaml:"User" envconfig:"PG_USER" validate:"nonzero"`
 		Pass   string `yaml:"Pass" envconfig:"PG_PASS"`
@@ -30,7 +30,7 @@ type Config struct {
 	} `yaml:"Postgres"`
 
 	Redis struct {
-		Host string `yaml:"Host" envconfig:"REDIS_HOST" validate:"nonzero"`
+		Host string `yaml:"Host" envconfig:"REDIS_HOST" validate:"nonzero" default:"localhost"`
 		Port string `yaml:"Port" envconfig:"REDIS_PORT" validate:"nonzero"`
 		Pass string `yaml:"Pass" envconfig:"REDIS_PASS"`
 	} `yaml:"Redis"`
@@ -67,11 +67,11 @@ func ParseConfig() Config {
 	yamlErr := parseYamlConfig(&cfg)
 	envErr := parseEnvConfig(&cfg)
 
-	if yamlErr != nil {
-		logger.Error("yaml parse error", zap.Error(yamlErr))
-	}
 	if envErr != nil {
-		logger.Error("env parse error", zap.Error(yamlErr))
+		if yamlErr != nil {
+			logger.Error("yaml parse error", zap.Error(yamlErr))
+		}
+		logger.Error("env parse error", zap.Error(envErr))
 	}
 	if err := validator.Validate(cfg); err != nil {
 		err = fmt.Errorf("ParseConfig: Failed to extract all fields for config: %w", err)
