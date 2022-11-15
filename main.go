@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -53,6 +54,9 @@ func main() {
 	notificationService = NewNotificationService(RD, 10*time.Second)
 
 	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		_, _ = io.WriteString(writer, "OK")
+	})
 	go func() {
 		for {
 			err := http.ListenAndServe(":2112", nil)
