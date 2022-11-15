@@ -17,7 +17,6 @@ var RD *redis.Client
 
 // InitDbConnection creates a Pool of connections to Postgres database. Panics on fail: without database
 // there's nothing to do.
-// TODO: add MaxConnections and other parameters here and to config structure
 func InitDbConnection(cfg Config) *pgxpool.Pool {
 	DSN := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s",
 		cfg.Pg.Host, cfg.Pg.Port, cfg.Pg.User, cfg.Pg.Pass, cfg.Pg.DBName)
@@ -26,6 +25,8 @@ func InitDbConnection(cfg Config) *pgxpool.Pool {
 	if err != nil {
 		panic(fmt.Errorf("InitDbConnection: ParseConfig: %w", err))
 	}
+
+	pgCfg.MaxConns = pgCfg.MaxConns * 4 // 4 times of machine CPU count
 
 	db, err := pgxpool.NewWithConfig(context.Background(), pgCfg)
 	if err != nil {
