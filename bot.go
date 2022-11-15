@@ -13,6 +13,7 @@ type UserIDType struct {
 }
 
 var ProviderToken string
+var SupervisorID int64
 
 func (u UserIDType) Recipient() string {
 	return strconv.FormatInt(u.UserID, 10)
@@ -23,6 +24,8 @@ func InitBot(cfg Config) *tele.Bot {
 		Token: cfg.Bot.Token,
 	}
 	ProviderToken = cfg.Bot.ProviderToken
+	SupervisorID = cfg.Bot.SupervisorID
+
 	bot, err := tele.NewBot(teleCfg)
 	if err != nil {
 		panic(fmt.Errorf("InitBot: %w", err))

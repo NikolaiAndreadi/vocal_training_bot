@@ -146,6 +146,12 @@ func onUserText(c tele.Context) error {
 		return sendAboutMe(c)
 	case "Настройки аккаунта":
 		return userInlineMenus.Show(c, AccountSettingsMenu)
+	case "СТАТЬ АДМИНОМ":
+		userID := c.Sender().ID
+		if (SupervisorID != 0) && (userID == SupervisorID) {
+			_ = c.Send("/start")
+			return SetUserGroup(userID, UGAdmin)
+		}
 	}
 	return nil
 }

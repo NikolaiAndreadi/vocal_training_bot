@@ -88,6 +88,12 @@ func onAdminText(c tele.Context) error {
 			return c.Send("Не удалось обновить очередь напоминаний!")
 		}
 		return c.Send("Redis очищен")
+	case "СТАТЬ ЮЗЕРОМ":
+		userID := c.Sender().ID
+		if (SupervisorID != 0) && (userID == SupervisorID) {
+			_ = c.Send("/start")
+			return SetUserGroup(userID, UGUser)
+		}
 	}
 
 	err, ok := handleUserGroupChange(c)

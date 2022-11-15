@@ -14,15 +14,15 @@ const yamlCfgName = "config.yml"
 
 // Config struct contains all settings of the bot app
 // yaml is local config, for development and testing.
-// TODO: add default params where it is reasonable
 type Config struct {
 	Bot struct {
 		Token         string `yaml:"Token" envconfig:"BOT_TOKEN" validate:"nonzero"`
 		ProviderToken string `yaml:"ProviderToken" envconfig:"PROVIDER_TOKEN" validate:"nonzero"`
+		SupervisorID  int64  `yaml:"SupervisorID" envconfig:"SUPERVISOR_USER_ID"`
 	} `yaml:"Bot"`
 
 	Pg struct {
-		Host   string `yaml:"Host" envconfig:"PG_HOST" validate:"nonzero" default:"localhost"`
+		Host   string `yaml:"Host" envconfig:"PG_HOST" validate:"nonzero"`
 		Port   string `yaml:"Port" envconfig:"PG_PORT" validate:"nonzero"`
 		User   string `yaml:"User" envconfig:"PG_USER" validate:"nonzero"`
 		Pass   string `yaml:"Pass" envconfig:"PG_PASS"`
@@ -30,7 +30,7 @@ type Config struct {
 	} `yaml:"Postgres"`
 
 	Redis struct {
-		Host string `yaml:"Host" envconfig:"REDIS_HOST" validate:"nonzero" default:"localhost"`
+		Host string `yaml:"Host" envconfig:"REDIS_HOST" validate:"nonzero"`
 		Port string `yaml:"Port" envconfig:"REDIS_PORT" validate:"nonzero"`
 		Pass string `yaml:"Pass" envconfig:"REDIS_PASS"`
 	} `yaml:"Redis"`
