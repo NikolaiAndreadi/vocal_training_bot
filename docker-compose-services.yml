@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7.0.5-alpine3.16
+    volumes:
+      - rdData:/data
+    command: /bin/sh -c "redis-server --requirepass ${REDIS_PASS}"
+    ports:
+      - "6379:${REDIS_PORT}"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    restart: always
+
+  postgres:
+    image: postgres:15.1-alpine3.16
+    volumes:
+      - pgData:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASS}
+      POSTGRES_DB: ${PG_DB_NAME}
+    ports:
+      - "5432:${PG_PORT}"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB_NAME}" ]
+      timeout: 5s
+      interval: 10s
+      retries: 5
+    restart: always
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - pmData:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: always
+
+volumes:
+  botData:
+    driver: local
+  pgData:
+    driver: local
+  rdData:
+    driver: local
+  pmData:
+    driver: local
