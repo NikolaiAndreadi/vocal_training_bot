@@ -19,26 +19,10 @@ var notificationService *NotificationService
 var logger *zap.Logger
 
 func main() {
+	logCore := buildLogger()
+
+	logger = zap.New(logCore, zap.AddStacktrace(zap.WarnLevel))
 	var err error
-	logSync := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   "./log.log",
-		MaxSize:    500, // mb
-		MaxBackups: 3,
-		MaxAge:     14, // days
-		Compress:   true,
-	})
-
-	encoder := zap.NewProductionEncoderConfig()
-	encoder.EncodeTime = zapcore.ISO8601TimeEncoder
-	fileEncoder := zapcore.NewJSONEncoder(encoder)
-	consoleEncoder := zapcore.NewConsoleEncoder(encoder)
-
-	logCore := zapcore.NewTee(
-		zapcore.NewCore(fileEncoder, logSync, zap.InfoLevel),
-		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zap.DebugLevel),
-	)
-
-	logger = zap.New(logCore)
 	defer func() {
 		err = logger.Sync()
 		if err != nil {
@@ -69,4 +53,27 @@ func main() {
 	userBot := InitBot(cfg)
 	notificationService.Start()
 	userBot.Start()
+}
+
+func buildLogger() zapcore.Core {
+	logSync := zapcore.AddSync(&lumberjack.Logger{
+		Filename:   "./log.log",
+		MaxSize:    500, // mb
+		MaxBackups: 3,
+		MaxAge:     14, // days
+		Compress:   true,
+	})
+
+	encoder := zap.NewProductionEncoderConfig()
+	encoder.EncodeTime = zapcore.ISO8601TimeEncoder
+
+	fileEncoder := zapcore.NewJSONEncoder(encoder)
+	consoleEncoder := zapcore.NewConsoleEncoder(encoder)
+
+	logCore := zapcore.NewTee(
+		zapcore.NewCore(fileEncoder, logSync, zap.InfoLevel),
+		zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), zap.DebugLevel),
+	)
+
+	return logCore
 }
