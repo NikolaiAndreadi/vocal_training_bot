@@ -21,7 +21,7 @@ var logger *zap.Logger
 func main() {
 	logCore := buildLogger()
 
-	logger = zap.New(logCore, zap.AddStacktrace(zap.WarnLevel))
+	logger = zap.New(logCore, zap.AddStacktrace(zap.ErrorLevel))
 	var err error
 	defer func() {
 		err = logger.Sync()
