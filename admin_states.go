@@ -608,6 +608,8 @@ func createSendable(bm *message, file *tele.File) tele.Sendable {
 		sendable = &tele.Voice{File: *file, Caption: bm.Text}
 	case "videoNote":
 		sendable = &tele.VideoNote{File: *file}
+	case "sticker":
+		sendable = &tele.Sticker{File: *file}
 	}
 	return sendable
 }
