@@ -25,10 +25,10 @@ func setupAdminHandlers(b *tele.Bot) {
 
 var (
 	MainAdminMenuOptions = []string{
-		"Отправить сообщения пользователям", BotExt.RowSplitterButton,
-		"Группы распевок", "Добавить подбадривание",
-		"Добавить распевку", "Изменить распевку",
-		"Кто нажал на 'Стать учеником'?", "Забанить, Сделать админом",
+		"Отправить сообщение всем", "Добавить подбадривание", // X X
+		"Добавить пакет распевок", "Изменить пакет распевок", // x x
+		"Добавить распевку", "Изменить распевку", // x x
+		"Кто хочет стать учеником", "Забанить, Сделать админом", // X X
 	}
 	MainAdminMenu = BotExt.ReplyMenuConstructor(MainAdminMenuOptions, 2, false)
 )
@@ -39,7 +39,7 @@ func onAdminStart(c tele.Context) error {
 
 func onAdminText(c tele.Context) error {
 	switch c.Text() {
-	case "Отправить сообщения пользователям":
+	case "Отправить сообщение всем":
 		userID := c.Sender().ID
 		BotExt.SetStateVar(userID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGRecordMessage)
@@ -56,13 +56,10 @@ func onAdminText(c tele.Context) error {
 			"в качестве текста напиши 'бан', 'админ' или 'юзер'\n" +
 			"чтобы изменить группу пользователя`)")
 
-	case "Группы распевок":
-		err := adminInlineMenus.Show(c, warmupGroupAddGroupMenu)
-		if err != nil {
-			return err
-		}
-		_ = c.Send("Нажми на название чтобы переименовать")
-		return adminInlineMenus.Show(c, warmupGroupAdminMenu)
+	case "Добавить пакет распевок":
+		return nil // TODO + user part of api
+	case "Изменить пакет распевок":
+		return nil // TODO
 	case "Добавить распевку":
 		BotExt.SetStateVar(c.Sender().ID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGAddWarmup)
@@ -74,7 +71,7 @@ func onAdminText(c tele.Context) error {
 		BotExt.SetStateVar(userID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGRecordCheerup)
 		return nil
-	case "Кто нажал на 'Стать учеником'?":
+	case "Кто хочет стать учеником":
 		return adminInlineMenus.Show(c, wannabeStudentResolutionMenu)
 	case "ОЧИСТИТЬ КЭШ":
 		err := RD.FlushAll().Err()

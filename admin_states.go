@@ -23,12 +23,10 @@ const (
 
 	AdminSGAddWarmup        = "AdminSG_AddWarmup"
 	AdminSGWarmupSetName    = "AdminSG_WarmupSetName"
-	AdminSGWarmupSetPrice   = "AdminSG_WarmupSetPrice"
 	AdminSGWarmupSetContent = "AdminSG_WarmupSetContent"
 
 	ChangeWarmupSetGroup = "changeWarmupSetGroup"
 	ChangeWarmupSetName  = "ChangeWarmupSetName"
-	ChangeWarmupSetPrice = "ChangeWarmupSetPrice"
 )
 
 const storageFolder = "./message_storage/"
@@ -87,6 +85,7 @@ func SetupAdminStates() {
 		Name:           ChangeWarmupSetGroup,
 		OnTrigger:      "В какую группу поместить распевку?",
 		OnTriggerExtra: []interface{}{warmupGroupAdminMenu},
+		KeepVarsOnQuit: true,
 		Validator: func(c tele.Context) string {
 			_, ok := BotExt.GetStateVar(c.Sender().ID, "selectedWarmupGroup")
 			if !ok {
@@ -124,22 +123,6 @@ func SetupAdminStates() {
 		},
 	})
 
-	err = adminFSM.RegisterOneShotState(&BotExt.State{
-		Name:      ChangeWarmupSetPrice,
-		OnTrigger: "Новая цена?",
-		Validator: priceValidator,
-		OnSuccess: "Done!",
-		Manipulator: func(c tele.Context) error {
-			warmupID, _ := BotExt.GetStateVar(c.Sender().ID, "selectedWarmup")
-			_, err = DB.Exec(context.Background(), `
-				UPDATE warmups
-				SET price = $1
-				WHERE warmup_id = $2
-			`, c.Text(), warmupID)
-			return err
-		},
-	})
-
 	err = adminFSM.RegisterStateChain([]*BotExt.State{
 		{
 			Name:           AdminSGAddWarmup,
@@ -163,15 +146,6 @@ func SetupAdminStates() {
 			},
 		},
 		{
-			Name:      AdminSGWarmupSetPrice,
-			OnTrigger: "Сколько будет стоить распевка? Цена в рублях, без копеек!",
-			Validator: priceValidator,
-			Manipulator: func(c tele.Context) error {
-				BotExt.SetStateVar(c.Sender().ID, "WarmupPrice", c.Text())
-				return nil
-			},
-		},
-		{
 			Name:        AdminSGWarmupSetContent,
 			OnTrigger:   "Напиши содержание распевки. Как закончишь - напиши СТОП",
 			Manipulator: RecordWarmup,
@@ -186,17 +160,6 @@ func SetupAdminStates() {
 func nameMax50Validator(c tele.Context) string {
 	if len(c.Text()) >= 50 {
 		return "Название группы слишком длинное!"
-	}
-	return ""
-}
-
-func priceValidator(c tele.Context) string {
-	price, err := strconv.Atoi(c.Text())
-	if err != nil {
-		return "Тут должно быть неотрицательное число!"
-	}
-	if price < 0 {
-		return "Тут должно быть неотрицательное число!"
 	}
 	return ""
 }
@@ -287,13 +250,10 @@ func RecordWarmup(c tele.Context) error {
 		if !ok {
 			return fmt.Errorf("RecordWarmup: can't fetch WarmupName")
 		}
-		warmupPrice, ok := values["WarmupPrice"]
-		if !ok {
-			return fmt.Errorf("RecordWarmup: can't fetch WarmupPrice")
-		}
+
 		_, err := DB.Exec(context.Background(), `
-		INSERT INTO warmups (warmup_group, warmup_name, price, record_id)
-		VALUES ($1::int, $2, $3::int2, $4::uuid)`, warmupGroup, warmupName, warmupPrice, recordID)
+		INSERT INTO warmups (warmup_group, warmup_name, record_id)
+		VALUES ($1::int, $2, $3::uuid)`, warmupGroup, warmupName, recordID)
 		if err != nil {
 			return fmt.Errorf("RecordWarmup: cannot update database, %w", err)
 		}

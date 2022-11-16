@@ -109,17 +109,17 @@ func createSchema(conn *pgxpool.Pool) {
 
 	CREATE TABLE IF NOT EXISTS warmup_groups (
 	    warmup_group_id	serial	PRIMARY KEY, 
-	    group_name		text
+	    group_name		text    NOT NULL,
+   	    price			int2	CHECK (price >= 0) DEFAULT 0
+
 	);
+
 	CREATE TABLE IF NOT EXISTS warmups (
 	    warmup_id		serial	PRIMARY KEY,
 	    warmup_group	int		REFERENCES warmup_groups(warmup_group_id),
 	    warmup_name		text,
-	    price			int2	CHECK (price >= 0) DEFAULT 0,
 	    record_id		uuid    -- REFERENCES messages(record_id) MATCH SIMPLE 
 	);
-
-	
 
 	CREATE TABLE IF NOT EXISTS acquired_warmups (
 	    user_id				int8		REFERENCES users(user_id),
@@ -129,29 +129,13 @@ func createSchema(conn *pgxpool.Pool) {
 	    price_when_acquired	text		NOT NULL,
 
 	    acquire_datetime	timestamp	DEFAULT now()
-	)
+	);
 	`
 
 	if _, err := conn.Exec(context.Background(), schema); err != nil {
 		panic(fmt.Errorf("createSchema: %w", err))
 
 	}
-}
-
-func UserIsInDatabase(UserID int64) bool {
-	var userID int64
-	err := DB.QueryRow(context.Background(), "SELECT user_id from users where user_id = $1", UserID).Scan(&userID)
-	if err == nil {
-		return userID != 0
-	}
-	if err == pgx.ErrNoRows {
-		return false
-	}
-	if err != nil {
-		logger.Error("", zap.Int64("user", userID), zap.Error(err))
-	}
-
-	return false
 }
 
 func initUserDBs(userID int64) error {

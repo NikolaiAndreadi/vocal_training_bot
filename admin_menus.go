@@ -14,7 +14,6 @@ import (
 const (
 	wannabeStudentResolutionMenu = "wannabeStudentResolutionMenu"
 	warmupGroupAdminMenu         = "warmupGroupAdminMenu"
-	warmupGroupAddGroupMenu      = "warmupGroupAddGroupMenu"
 	changeWarmupMenu             = "changeWarmupMenu"
 	changeWarmupParamsMenu       = "changeWarmupParamsMenu"
 )
@@ -88,44 +87,12 @@ func SetupAdminMenuHandlers(b *tele.Bot) {
 				return c.Respond()
 			},
 		},
-		{
-			Unique: "ChangeWarmupPrice",
-			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
-				s, ok := dc["warmupPrice"]
-				if !ok {
-					return "Цена неизвестна", fmt.Errorf("can't fetch warmupPrice")
-				}
-				return "Цена: " + s, nil
-			},
-			OnClick: func(c tele.Context) error {
-				adminFSM.Trigger(c, ChangeWarmupSetPrice, changeWarmupParamsMenu)
-				return c.Respond()
-			},
-		},
 	})
 	err = adminInlineMenus.RegisterMenu(b, changeWarmupParamsIM)
 	if err != nil {
 		panic(err)
 	}
 
-	warmupGroupAddGroupIM := BotExt.NewInlineMenu(
-		warmupGroupAddGroupMenu,
-		"Добавить новую группу. Внимание! Удалить ее будет уже нельзя.",
-		1,
-		nil,
-	)
-	warmupGroupAddGroupIM.AddButton(&BotExt.InlineButtonTemplate{
-		Unique:         "AddWarmupGroup",
-		TextOnCreation: "➕",
-		OnClick: func(c tele.Context) error {
-			adminFSM.Trigger(c, AdminSGAddGroupMenu, warmupGroupAddGroupMenu)
-			return c.Respond()
-		},
-	})
-	err = adminInlineMenus.RegisterMenu(b, warmupGroupAddGroupIM)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func wannabeStudentResolutionFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
