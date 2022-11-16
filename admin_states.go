@@ -433,42 +433,18 @@ func (m message) HasFile() bool {
 }
 
 func SendMessages(b *tele.Bot, recordID string) error {
-	rows, err := DB.Query(context.Background(), `
-		SELECT message_id, chat_id, album_id, message_type, message_text, entity_json from messages
-		WHERE record_id = $1
-		ORDER BY message_id`, recordID)
-
-	defer rows.Close()
+	BakedMessage, err := bakeMessage(recordID)
 	if err != nil {
-		return fmt.Errorf("SendMessages[recordID = %s]: pg messages query error %w", recordID, err)
+		return fmt.Errorf("SendMessages: %w", err)
 	}
 
-	var BakedMessage []message
-	var lastAlbum string
-	var msg message
-
-	for rows.Next() {
-		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID, &msg.Type, &msg.Text, &msg.Json)
-		if err != nil {
-			return fmt.Errorf("SendMessages[recordID = %s]: messages row scan error %w", recordID, err)
-		}
-		if msg.albumID == "" {
-			BakedMessage = append(BakedMessage, msg)
-			continue
-		}
-		if msg.albumID == lastAlbum {
-			continue
-		}
-		BakedMessage = append(BakedMessage, msg)
-	}
-
-	rows, err = DB.Query(context.Background(), `
+	rows, err := DB.Query(context.Background(), `
 		SELECT user_id from users
 		WHERE user_class = 'USER'`)
-	defer rows.Close()
 	if err != nil {
 		return fmt.Errorf("SendMessages[recordID = %s]: pg query error %w", recordID, err)
 	}
+	defer rows.Close()
 
 	var userID int64
 	for rows.Next() {
@@ -479,12 +455,12 @@ func SendMessages(b *tele.Bot, recordID string) error {
 		user := UserIDType{userID}
 		for _, bm := range BakedMessage {
 			_, err = b.Copy(UserIDType{userID}, bm)
-			if err.Error() == "telegram: Bad Request: message to copy not found (400)" {
-				err = sendFromDatabase(b, user, &bm, false)
-			}
 			if err != nil {
-				return fmt.Errorf("SendMessageToUsers[recordID = %s]: sending message error for user [%d]: %w",
-					recordID, userID, err)
+				if err.Error() == "telegram: Bad Request: message to copy not found (400)" {
+					err = sendFromDatabase(b, user, &bm, false)
+				}
+				logger.Error("can't SendMessages to specific user", zap.Error(err),
+					zap.Int64("userID", userID), zap.String("recordID", recordID))
 			}
 		}
 	}
@@ -492,37 +468,9 @@ func SendMessages(b *tele.Bot, recordID string) error {
 }
 
 func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool) error {
-	rows, err := DB.Query(context.Background(), `
-		SELECT message_id, chat_id, album_id, message_type, message_text, entity_json from messages
-		WHERE record_id = $1
-		ORDER BY message_id`, recordID)
-
-	defer rows.Close()
+	BakedMessage, err := bakeMessage(recordID)
 	if err != nil {
-		return fmt.Errorf("SendMessageToUser[recordID = %s]: pg messages query error %w", recordID, err)
-	}
-
-	var BakedMessage []message
-	var lastAlbum string
-	var msg message
-
-	for rows.Next() {
-		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID, &msg.Type, &msg.Text, &msg.Json)
-		if err != nil {
-			return fmt.Errorf("SendMessageToUser[recordID = %s]: messages row scan error %w", recordID, err)
-		}
-		if msg.albumID == "" {
-			BakedMessage = append(BakedMessage, msg)
-			continue
-		}
-		if msg.albumID == lastAlbum {
-			continue
-		}
-		BakedMessage = append(BakedMessage, msg)
-	}
-
-	if len(BakedMessage) == 0 {
-		return fmt.Errorf("SendMessageToUser: can't find record %s", recordID)
+		return fmt.Errorf("SendMessageToUser: %w", err)
 	}
 
 	user := UserIDType{userID}
@@ -543,6 +491,42 @@ func SendMessageToUser(b *tele.Bot, userID int64, recordID string, secured bool)
 		}
 	}
 	return nil
+}
+
+func bakeMessage(recordID string) ([]message, error) {
+	rows, err := DB.Query(context.Background(), `
+		SELECT message_id, chat_id, album_id, message_type, message_text, entity_json from messages
+		WHERE record_id = $1
+		ORDER BY message_id`, recordID)
+
+	defer rows.Close()
+	if err != nil {
+		return nil, fmt.Errorf("bakeMessage[recordID = %s]: pg messages query error %w", recordID, err)
+	}
+
+	var BakedMessage []message
+	var lastAlbum string
+	var msg message
+
+	for rows.Next() {
+		err := rows.Scan(&msg.messageID, &msg.chatID, &msg.albumID, &msg.Type, &msg.Text, &msg.Json)
+		if err != nil {
+			return nil, fmt.Errorf("bakeMessage[recordID = %s]: messages row scan error %w", recordID, err)
+		}
+		if msg.albumID == "" {
+			BakedMessage = append(BakedMessage, msg)
+			continue
+		}
+		if msg.albumID == lastAlbum {
+			continue
+		}
+		BakedMessage = append(BakedMessage, msg)
+	}
+
+	if len(BakedMessage) == 0 {
+		return nil, fmt.Errorf("bakeMessage: can't find record %s", recordID)
+	}
+	return BakedMessage, nil
 }
 
 func sendFromDatabase(b *tele.Bot, user tele.Recipient, bm *message, secured bool) (err error) {
