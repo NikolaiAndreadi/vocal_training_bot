@@ -329,7 +329,21 @@ func RecordOneTimeMessage(c tele.Context) error {
 		if err := c.Send("Отправка сообщений..."); err != nil {
 			logger.Error("can't send message", zap.Int64("user", userID), zap.Error(err))
 		}
-		return SendMessages(c.Bot(), recordID)
+
+		err := SendMessages(c.Bot(), recordID)
+		if err != nil {
+			logger.Error("can't send messages", zap.String("recordID", recordID), zap.Error(err))
+		}
+
+		// delete because onetime
+		// TODO: clear lost messages from time to time (that are not cheerup or warmup)
+		_, err = DB.Exec(context.Background(), `
+		DELETE FROM messages 
+		WHERE record_id = $1`, recordID)
+		if err != nil {
+			return fmt.Errorf("RecordOneTimeMessage: cannot delete record, %w", err)
+		}
+		return nil
 	}
 
 	if strings.ToLower(c.Text()) == "отмена" {
