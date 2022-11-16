@@ -57,9 +57,10 @@ func onAdminText(c tele.Context) error {
 			"чтобы изменить группу пользователя`)")
 
 	case "Добавить пакет распевок":
-		return nil // TODO + user part of api
+		adminFSM.Trigger(c, AdminSGAddWarmupGroup)
+		return nil
 	case "Изменить пакет распевок":
-		return nil // TODO
+		return adminInlineMenus.Show(c, warmupGroupAdminMenu)
 	case "Добавить распевку":
 		BotExt.SetStateVar(c.Sender().ID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGAddWarmup)
@@ -130,15 +131,11 @@ func OnAdminInlineResult(c tele.Context) error {
 
 	case warmupGroupAdminMenu:
 		BotExt.SetStateVar(userID, "selectedWarmupGroup", triggeredID)
-		if adminFSM.GetCurrentState(c) == AdminSGAddWarmup {
-			adminFSM.Update(c)
-			return c.Respond()
+		err := adminInlineMenus.Show(c, changeWarmupGroupParamsMenu)
+		if err != nil {
+			logger.Error("changeWarmupMenu", zap.Int64("user", userID), zap.Error(err))
 		}
-		if adminFSM.GetCurrentState(c) == ChangeWarmupSetGroup {
-			adminFSM.Update(c)
-			return c.Respond()
-		}
-		adminFSM.Trigger(c, AdminSGRenameWarmupGroup)
+
 	case changeWarmupMenu:
 		BotExt.SetStateVar(userID, "selectedWarmup", triggeredID)
 		err := adminInlineMenus.Show(c, changeWarmupParamsMenu)

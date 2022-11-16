@@ -16,10 +16,12 @@ import (
 )
 
 const (
-	AdminSGRecordMessage     = "AdminSG_RecordMessage"
-	AdminSGRecordCheerup     = "AdminSG_RecordCheerup"
-	AdminSGAddGroupMenu      = "AdminSG_AddGroupMenu"
-	AdminSGRenameWarmupGroup = "AdminSG_RenameWarmupGroup"
+	AdminSGRecordMessage       = "AdminSG_RecordMessage"
+	AdminSGRecordCheerup       = "AdminSG_RecordCheerup"
+	AdminSGAddWarmupGroup      = "AdminSG_AddWarmupGroup"
+	AdminSGSetWarmupGroupPrice = "AdminSG_SetWarmupGroupPrice"
+	AdminSGRenameWarmupGroup   = "AdminSG_RenameWarmupGroup"
+	AdminSGRepriceWarmupGroup  = "AdminSG_RepriceWarmupGroup"
 
 	AdminSGAddWarmup        = "AdminSG_AddWarmup"
 	AdminSGWarmupSetName    = "AdminSG_WarmupSetName"
@@ -54,28 +56,44 @@ func SetupAdminStates() {
 		panic(err)
 	}
 
-	err = adminFSM.RegisterOneShotState(&BotExt.State{
-		Name:        AdminSGAddGroupMenu,
-		OnTrigger:   `Введи название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
-		Validator:   nameMax50Validator,
-		Manipulator: AddWarmupGroup,
-		OnSuccess:   "DONE!",
+	err = adminFSM.RegisterStateChain([]*BotExt.State{
+		{
+			Name:        AdminSGAddWarmupGroup,
+			OnTrigger:   `Введи название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
+			Validator:   nameMax50Validator,
+			Manipulator: SetWarmupGroupName,
+		},
+		{
+			Name:        AdminSGSetWarmupGroupPrice,
+			OnTrigger:   `Введи цену группы`,
+			Validator:   priceValidator,
+			Manipulator: SetWarmupGroupPrice,
+			OnSuccess:   "DONE!",
+		},
 	})
 	if err != nil {
 		panic(err)
 	}
 
 	err = adminFSM.RegisterOneShotState(&BotExt.State{
-		Name:      AdminSGRenameWarmupGroup,
-		OnTrigger: `Введи новое название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
-		Validator: func(c tele.Context) string {
-			if len(c.Text()) >= 50 {
-				return "Название группы слишком длинное!"
-			}
-			return ""
-		},
-		Manipulator: RenameWarmupGroup,
-		OnSuccess:   "DONE!",
+		Name:           AdminSGRenameWarmupGroup,
+		OnTrigger:      `Введи новое название группы, макс 50 символов. Для отмены напиши 'ОТМЕНА'`,
+		Validator:      nameMax50Validator,
+		KeepVarsOnQuit: true,
+		Manipulator:    RenameWarmupGroup,
+		OnSuccess:      "DONE!",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	err = adminFSM.RegisterOneShotState(&BotExt.State{
+		Name:           AdminSGRepriceWarmupGroup,
+		OnTrigger:      `Введи новую цену группы`,
+		Validator:      priceValidator,
+		KeepVarsOnQuit: true,
+		Manipulator:    RepriceWarmupGroup,
+		OnSuccess:      "DONE!",
 	})
 	if err != nil {
 		panic(err)
@@ -164,17 +182,37 @@ func nameMax50Validator(c tele.Context) string {
 	return ""
 }
 
-func AddWarmupGroup(c tele.Context) error {
+func priceValidator(c tele.Context) string {
+	price, err := strconv.Atoi(c.Text())
+	if err != nil {
+		return "Тут должно быть неотрицательное число!"
+	}
+	if price < 0 {
+		return "Тут должно быть неотрицательное число!"
+	}
+	return ""
+}
+
+func SetWarmupGroupPrice(c tele.Context) error {
+	groupName, ok := BotExt.GetStateVar(c.Sender().ID, "groupName")
+	if !ok {
+		return fmt.Errorf("SetWarmupGroupPrice: can't get groupName value")
+	}
+	_, err := DB.Exec(context.Background(), `
+	INSERT INTO warmup_groups (group_name, price)
+	VALUES ($1, $2)`, groupName, c.Text())
+	if err != nil {
+		return fmt.Errorf("AddWarmupGroup: %w", err)
+	}
+	return nil
+}
+
+func SetWarmupGroupName(c tele.Context) error {
 	if strings.ToLower(c.Text()) == "отмена" {
 		return nil
 	}
 
-	_, err := DB.Exec(context.Background(), `
-	INSERT INTO warmup_groups (group_name)
-	VALUES ($1)`, c.Text())
-	if err != nil {
-		return fmt.Errorf("AddWarmupGroup: %w", err)
-	}
+	BotExt.SetStateVar(c.Sender().ID, "groupName", c.Text())
 	return nil
 }
 
@@ -193,7 +231,23 @@ func RenameWarmupGroup(c tele.Context) error {
 	WHERE warmup_group_id = $2
 	`, c.Text(), groupID)
 	if err != nil {
-		return fmt.Errorf("AddWarmupGroup: %w", err)
+		return fmt.Errorf("RenameWarmupGroup: %w", err)
+	}
+	return nil
+}
+
+func RepriceWarmupGroup(c tele.Context) error {
+	groupID, ok := BotExt.GetStateVar(c.Sender().ID, "selectedWarmupGroup")
+	if !ok {
+		return fmt.Errorf("RepriceWarmupGroup: can't find state var selectedWarmupGroup")
+	}
+	_, err := DB.Exec(context.Background(), `
+	UPDATE warmup_groups
+	SET price = $1
+	WHERE warmup_group_id = $2
+	`, c.Text(), groupID)
+	if err != nil {
+		return fmt.Errorf("RepriceWarmupGroup: %w", err)
 	}
 	return nil
 }

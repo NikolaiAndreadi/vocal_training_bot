@@ -16,6 +16,8 @@ const (
 	warmupGroupAdminMenu         = "warmupGroupAdminMenu"
 	changeWarmupMenu             = "changeWarmupMenu"
 	changeWarmupParamsMenu       = "changeWarmupParamsMenu"
+
+	changeWarmupGroupParamsMenu = "changeWarmupGroupParamsMenu"
 )
 
 func SetupAdminMenuHandlers(b *tele.Bot) {
@@ -48,6 +50,47 @@ func SetupAdminMenuHandlers(b *tele.Bot) {
 		warmupListFetcher,
 	)
 	err = adminInlineMenus.RegisterMenu(b, changeWarmupIM)
+	if err != nil {
+		panic(err)
+	}
+
+	changeWarmupGroupParamsIM := BotExt.NewInlineMenu(
+		changeWarmupGroupParamsMenu,
+		"Параметры для изменения",
+		1,
+		warmupGroupParamsFetcher,
+	)
+	changeWarmupGroupParamsIM.AddButtons([]*BotExt.InlineButtonTemplate{
+		{
+			Unique: "ChangeWarmupGroupName",
+			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["warmupGroupName"]
+				if !ok {
+					return "Название неизвестно", fmt.Errorf("can't fetch warmupGroupName")
+				}
+				return "Название: " + s, nil
+			},
+			OnClick: func(c tele.Context) error {
+				adminFSM.Trigger(c, AdminSGRenameWarmupGroup, changeWarmupGroupParamsMenu)
+				return c.Respond()
+			},
+		},
+		{
+			Unique: "ChangeWarmupGroupPrice",
+			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
+				s, ok := dc["warmupGroupPrice"]
+				if !ok {
+					return "Цена неизвестна", fmt.Errorf("can't fetch warmupGroupPrice")
+				}
+				return "Цена: " + s, nil
+			},
+			OnClick: func(c tele.Context) error {
+				adminFSM.Trigger(c, AdminSGRepriceWarmupGroup, changeWarmupGroupParamsMenu)
+				return c.Respond()
+			},
+		},
+	})
+	err = adminInlineMenus.RegisterMenu(b, changeWarmupGroupParamsIM)
 	if err != nil {
 		panic(err)
 	}
@@ -197,11 +240,11 @@ func warmupParamsFetcher(c tele.Context) (map[string]string, error) {
 		return nil, fmt.Errorf("warmupParamsFetcher: can't fetch selectedWarmup")
 	}
 
-	var warmupGroup, warmupName, warmupPrice string
+	var warmupGroup, warmupName string
 	err := DB.QueryRow(context.Background(), `
-	SELECT group_name, warmup_name, price::text FROM warmups
+	SELECT group_name, warmup_name FROM warmups
 	INNER JOIN warmup_groups ON warmups.warmup_group = warmup_groups.warmup_group_id                                                    
-	WHERE warmup_id = $1`, warmupID).Scan(&warmupGroup, &warmupName, &warmupPrice)
+	WHERE warmup_id = $1`, warmupID).Scan(&warmupGroup, &warmupName)
 	if err != nil {
 		return nil, fmt.Errorf("warmupParamsFetcher: can't fetch %s warmup data: %w", warmupID, err)
 	}
@@ -209,7 +252,28 @@ func warmupParamsFetcher(c tele.Context) (map[string]string, error) {
 	out := make(map[string]string)
 	out["warmupGroup"] = warmupGroup
 	out["warmupName"] = warmupName
-	out["warmupPrice"] = warmupPrice
+
+	return out, nil
+}
+
+func warmupGroupParamsFetcher(c tele.Context) (map[string]string, error) {
+	userID := c.Sender().ID
+	warmupGroupID, ok := BotExt.GetStateVar(userID, "selectedWarmupGroup")
+	if !ok {
+		return nil, fmt.Errorf("warmupParamsFetcher: can't fetch selectedWarmupGroup")
+	}
+
+	var warmupGroupName, warmupGroupPrice string
+	err := DB.QueryRow(context.Background(), `
+	SELECT group_name, price::text FROM warmup_groups
+	WHERE warmup_group_id = $1`, warmupGroupID).Scan(&warmupGroupName, &warmupGroupPrice)
+	if err != nil {
+		return nil, fmt.Errorf("warmupGroupParamsFetcher: can't fetch %s warmup data: %w", warmupGroupID, err)
+	}
+
+	out := make(map[string]string)
+	out["warmupGroupName"] = warmupGroupName
+	out["warmupGroupPrice"] = warmupGroupPrice
 
 	return out, nil
 }
