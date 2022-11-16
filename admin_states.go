@@ -400,7 +400,7 @@ func saveMessageToDBandDisk(c tele.Context, userID int64, recordID string) error
 				logger.Error("can't save message", zap.Int64("user", userID), zap.Error(err))
 			}
 		} else {
-			logger.Error("file exists", zap.Int64("user", userID),
+			logger.Warn("file exists", zap.Int64("user", userID),
 				zap.String("fileUniqueID", mediaFile.UniqueID), zap.Error(err))
 		}
 	}
