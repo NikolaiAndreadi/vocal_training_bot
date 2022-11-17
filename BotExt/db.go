@@ -43,7 +43,7 @@ func setState(userID int64, stateName string) {
 	}
 }
 
-// setState extract current state for user from database
+// getState extract current state for user from database
 func getState(userID int64) (stateName string) {
 	err := DB.QueryRow(context.Background(),
 		"SELECT state FROM states WHERE user_id = $1", userID).Scan(&stateName)

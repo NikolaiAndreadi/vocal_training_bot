@@ -74,7 +74,7 @@ func (f *FSM) Trigger(c tele.Context, stateName string, byMenu ...string) {
 
 // Update starts cycle of Validation and data Manipulation for the State
 func (f *FSM) Update(c tele.Context) {
-	stateName := getState(c.Sender().ID)
+	stateName := f.GetCurrentState(c)
 	if stateName == "" {
 		return
 	}

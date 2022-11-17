@@ -130,6 +130,11 @@ func OnAdminInlineResult(c tele.Context) error {
 		return c.Respond()
 
 	case warmupGroupAdminMenu:
+		if adminFSM.GetCurrentState(c) == AdminSGAddWarmup {
+			BotExt.SetStateVar(userID, "selectedWarmupGroup", triggeredID)
+			adminFSM.Update(c)
+			return c.Respond()
+		}
 		BotExt.SetStateVar(userID, "selectedWarmupGroup", triggeredID)
 		err := adminInlineMenus.Show(c, changeWarmupGroupParamsMenu)
 		if err != nil {
