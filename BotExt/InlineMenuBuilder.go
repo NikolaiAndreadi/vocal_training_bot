@@ -237,13 +237,13 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 			if err == NoButtons {
 				return nil
 			}
-			logger.Error("can't dynamicBake", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
+			logger.Error("can't dynamicBake", zap.Int64("UserID", c.Sender().ID), zap.String("menuName", im.Name), zap.Error(err))
 		}
 		return im.menuCarcass
 	}
 	dynamicContentMap, err := im.dataFetcher(c)
 	if err != nil {
-		logger.Error("can't fetch data from db", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
+		logger.Error("can't fetch data from db", zap.Int64("UserID", c.Sender().ID), zap.String("menuName", im.Name), zap.Error(err))
 	}
 
 	if dynamicContentMap == nil {
@@ -258,7 +258,7 @@ func (im *InlineMenu) bake(c tele.Context) *tele.ReplyMarkup {
 			}
 			content, err := f(c, dynamicContentMap)
 			if err != nil {
-				logger.Error("can't change val for button", zap.Int64("UserID", c.Sender().ID), zap.Error(err))
+				logger.Error("can't change val for button", zap.Int64("UserID", c.Sender().ID), zap.String("menuName", im.Name), zap.Error(err))
 			}
 			im.menuCarcass.InlineKeyboard[i][j].Text = content
 		}

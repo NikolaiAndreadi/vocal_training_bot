@@ -344,21 +344,39 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 
 func warmupGroupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
 	rows, err := DB.Query(context.Background(), `
-		SELECT warmup_group_id, group_name FROM warmup_groups
-		INNER JOIN (SELECT DISTINCT warmup_group FROM warmups) AS not_empty_groups 
-		ON warmup_groups.warmup_group_id = not_empty_groups.warmup_group`)
+		SELECT warmup_group_id, group_name, price, COALESCE(acquired, false) FROM warmup_groups
+		INNER JOIN 
+		    (SELECT DISTINCT warmup_group FROM warmups) AS not_empty_groups ON warmup_groups.warmup_group_id = not_empty_groups.warmup_group
+		LEFT JOIN (
+			SELECT group_id, true AS acquired 
+			FROM acquired_warmup_groups 
+			WHERE user_id = $1) AS acquired_warmups ON warmup_groups.warmup_group_id = acquired_warmups.group_id
+		ORDER BY price DESC
+	`, c.Sender().ID)
 	defer rows.Close()
 	if err != nil {
 		return nil, fmt.Errorf("warmupGroupsFetcher: can't fetch database: %w", err)
 	}
 	omap := om.New[string, string]()
 
-	var unique, text string
+	var unique, text, price string
+	var acquired bool
 	for rows.Next() {
-		err = rows.Scan(&unique, &text)
+		err = rows.Scan(&unique, &text, &price, &acquired)
 		if err != nil {
 			return omap, fmt.Errorf("warmupGroupsFetcher: can't fetch row: %w", err)
 		}
+		var priceText string
+		if (price == "0") && !acquired {
+			priceText = "🎁 бесплатно"
+		} else {
+			if acquired {
+				priceText = "🤑 куплено"
+			} else {
+				priceText = "💳 " + price + " рублей"
+			}
+		}
+		text := fmt.Sprintf("%s [%s]", text, priceText)
 		omap.Set(unique, text)
 	}
 
@@ -380,38 +398,22 @@ func warmupsFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
 	}
 
 	rows, err := DB.Query(context.Background(), `
-		SELECT warmups.warmup_id::text, warmup_name, price::text, COALESCE(acquired, false) FROM warmups
-		LEFT JOIN (
-			SELECT warmup_id, true AS acquired 
-			FROM acquired_warmups 
-			WHERE user_id = $1) AS acquired_warmups ON warmups.warmup_id = acquired_warmups.warmup_id
-		WHERE warmup_group = $2
-		ORDER BY price DESC`, c.Sender().ID, groupID)
+		SELECT warmups.warmup_id::text, warmup_name FROM warmups
+		WHERE warmup_group = $1`, groupID)
 	defer rows.Close()
 	if err != nil {
 		return nil, fmt.Errorf("warmupsFetcher: can't fetch database: %w", err)
 	}
 	omap := om.New[string, string]()
 
-	var warmupID, warmupName, warmupPrice string
-	var acquired bool
+	var warmupID, warmupName string
 	for rows.Next() {
-		err = rows.Scan(&warmupID, &warmupName, &warmupPrice, &acquired)
+		err = rows.Scan(&warmupID, &warmupName)
 		if err != nil {
 			return omap, fmt.Errorf("warmupsFetcher: can't fetch row: %w", err)
 		}
-		var priceText string
-		if (warmupPrice == "0") && !acquired {
-			priceText = "🎁 бесплатно"
-		} else {
-			if acquired {
-				priceText = "🤑 куплено"
-			} else {
-				priceText = "💳 " + warmupPrice + " рублей"
-			}
-		}
-		text := fmt.Sprintf("%s [%s]", warmupName, priceText)
-		omap.Set(warmupID, text)
+
+		omap.Set(warmupID, warmupName)
 	}
 
 	if omap.Len() == 0 {

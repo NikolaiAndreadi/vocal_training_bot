@@ -8,6 +8,7 @@ import (
 
 	"vocal_training_bot/BotExt"
 
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 )
@@ -18,7 +19,7 @@ var (
 )
 
 const (
-	WarmupPayloadChecker = "BuyWarmup"
+	WarmupPayloadChecker = "BuyWarmupGroup"
 	PayloadSplit         = "|"
 	PaymentErrorText     = "Произошла ошибка при проведении платежа!"
 )
@@ -37,20 +38,16 @@ func OnUserInlineResult(c tele.Context) error {
 	switch triggeredItem {
 	case WarmupGroupsMenu:
 		BotExt.SetStateVar(c.Sender().ID, "selectedWarmupGroup", triggeredID)
-		err := userInlineMenus.Show(c, WarmupsMenu)
+		err := processWarmupGroup(c, triggeredID)
 		if err != nil {
-			logger.Error("WarmupGroupsMenu", zap.Error(err))
-
+			logger.Error("OnUserInlineResult: WarmupGroupsMenu", zap.Error(err))
 		}
-		return c.Respond()
 	case WarmupsMenu:
-		err := processWarmups(c, triggeredID)
+		err := showWarmup(c, triggeredID)
 		if err != nil {
-			return fmt.Errorf("OnUserInlineResult: WarmupsMenu: %w", err)
+			logger.Error("OnUserInlineResult: WarmupsMenu", zap.Error(err))
 		}
-		return c.Respond()
 	}
-
 	return c.Respond()
 }
 
@@ -80,22 +77,22 @@ func onUserCheckout(c tele.Context) error {
 			zap.String("checkoutID", checkoutID), zap.Strings("payload", payloadData))
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
-	warmupID := payloadData[1]
+	warmupGroupID := payloadData[1]
 	priceWhenAcquired := strconv.Itoa(checkout.Total) + checkout.Currency
 
-	var warmupName string
+	var warmupGroupName string
 	var dbPrice int
 	err := DB.QueryRow(context.Background(), `
-		SELECT warmup_name, price*100 FROM warmups
-		WHERE warmup_id = $1`, warmupID).Scan(&warmupName, &dbPrice)
+		SELECT group_name, price*100 FROM warmup_groups
+		WHERE warmup_group_id = $1`, warmupGroupID).Scan(&warmupGroupName, &dbPrice)
 	if err != nil {
-		logger.Error("can't find warmup in db", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+		logger.Error("can't find warmup in db", zap.Int64("userID", userID), zap.String("warmupGroupID", warmupGroupID),
 			zap.String("checkoutID", checkoutID))
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
 
 	if dbPrice != checkout.Total {
-		logger.Error("price doesn't match", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+		logger.Error("price doesn't match", zap.Int64("userID", userID), zap.String("warmupGroupID", warmupGroupID),
 			zap.String("checkoutID", checkoutID), zap.Strings("payload", payloadData),
 			zap.Int("dbPrice", dbPrice), zap.Int("checkout.Total", checkout.Total),
 		)
@@ -103,16 +100,16 @@ func onUserCheckout(c tele.Context) error {
 	}
 
 	_, err = DB.Exec(context.Background(), `
-		INSERT INTO acquired_warmups(user_id, warmup_id, checkout_id, price_when_acquired)
-		VALUES ($1, $2, $3, $4)`, userID, warmupID, checkoutID, priceWhenAcquired)
+		INSERT INTO acquired_warmup_groups(user_id, group_id, checkout_id, price_when_acquired)
+		VALUES ($1, $2, $3, $4)`, userID, warmupGroupID, checkoutID, priceWhenAcquired)
 	if err != nil {
-		logger.Error("exec db error", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+		logger.Error("exec db error", zap.Int64("userID", userID), zap.String("warmupGroupID", warmupGroupID),
 			zap.String("checkoutID", checkoutID), zap.Error(err))
 		return c.Bot().Accept(checkout, PaymentErrorText)
 	}
 
-	_ = c.Send("Распевка '" + warmupName + "' преобретена! Теперь она доступна для просмотра в меню Распевки")
-	logger.Info("successful payment", zap.Int64("userID", userID), zap.String("warmupID", warmupID),
+	_ = c.Send("Пакет распевок '" + warmupGroupName + "' преобретен! Теперь он доступен для просмотра в меню Распевки")
+	logger.Info("successful payment", zap.Int64("userID", userID), zap.String("warmupGroupID", warmupGroupID),
 		zap.String("price", priceWhenAcquired))
 	return c.Bot().Accept(checkout)
 }
@@ -176,36 +173,34 @@ func sendAboutMe(c tele.Context) error {
 	return nil
 }
 
-func processWarmups(c tele.Context, warmupID string) error {
+func processWarmupGroup(c tele.Context, warmupGroupID string) error {
 	var (
-		acquired   bool
-		price      int
-		recordID   string
-		warmupName string
+		acquired        bool
+		price           int
+		warmupGroupName string
 	)
 	err := DB.QueryRow(context.Background(), `
-	SELECT COALESCE(acquired, false), price, record_id, warmup_name FROM warmups
+	SELECT COALESCE(acquired, false), price, group_name FROM warmup_groups
 		LEFT JOIN (
-			SELECT warmup_id, true AS acquired 
-			FROM acquired_warmups 
-			WHERE user_id = $1) AS acquired_warmups ON warmups.warmup_id = acquired_warmups.warmup_id
-	WHERE warmups.warmup_id = $2`, c.Sender().ID, warmupID).Scan(&acquired, &price, &recordID, &warmupName)
+			SELECT group_id, true AS acquired FROM acquired_warmup_groups 
+			WHERE user_id = $1) AS acquired_warmups ON warmup_groups.warmup_group_id = acquired_warmups.group_id
+	WHERE warmup_groups.warmup_group_id = $2`, c.Sender().ID, warmupGroupID).Scan(&acquired, &price, &warmupGroupName)
 	if err != nil {
-		return fmt.Errorf("processWarmups: can't select row: %w", err)
+		return fmt.Errorf("processWarmupGroup: can't select row: %w", err)
 	}
 
 	if (price == 0) || acquired {
-		err = SendMessageToUser(c.Bot(), c.Sender().ID, recordID, true)
+		err := userInlineMenus.Show(c, WarmupsMenu)
 		if err != nil {
 			return fmt.Errorf("processWarmups: SendMessageToUser: %w", err)
 		}
-		return nil
+		return c.Respond()
 	}
 
 	invoice := &tele.Invoice{
-		Title:       "Покупка распевки",
-		Description: "Распевка '" + warmupName + "'",
-		Payload:     WarmupPayloadChecker + PayloadSplit + warmupID,
+		Title:       "Покупка пакета распевок",
+		Description: "Пакет распевок '" + warmupGroupName + "'",
+		Payload:     WarmupPayloadChecker + PayloadSplit + warmupGroupID,
 		Currency:    "RUB",
 		Prices: []tele.Price{
 			{
@@ -216,4 +211,23 @@ func processWarmups(c tele.Context, warmupID string) error {
 		Token: ProviderToken,
 	}
 	return c.Send(invoice)
+}
+
+func showWarmup(c tele.Context, warmupID string) error {
+	var recordID string
+	userID := c.Sender().ID
+	err := DB.QueryRow(context.Background(), `
+		SELECT record_id FROM warmups
+		INNER JOIN (
+		    SELECT group_id FROM acquired_warmup_groups
+		    WHERE user_id = $1
+		) AS payment_check ON payment_check.group_id = warmups.warmup_group
+		WHERE warmup_id = $2`, userID, warmupID).Scan(&recordID)
+	if err == pgx.ErrNoRows {
+		return c.Send("☝️Ай-яй-яй! Распевка не найдена... Возможно, теперь она входит в платный пакет!")
+	}
+	if err != nil {
+		return fmt.Errorf("processWarmupGroup: can't select row: %w", err)
+	}
+	return SendMessageToUser(c.Bot(), userID, recordID, true)
 }

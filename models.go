@@ -111,7 +111,6 @@ func createSchema(conn *pgxpool.Pool) {
 	    warmup_group_id	serial	PRIMARY KEY, 
 	    group_name		text    NOT NULL,
    	    price			int2	CHECK (price >= 0) DEFAULT 0
-
 	);
 
 	CREATE TABLE IF NOT EXISTS warmups (
@@ -121,9 +120,9 @@ func createSchema(conn *pgxpool.Pool) {
 	    record_id		uuid    -- REFERENCES messages(record_id) MATCH SIMPLE 
 	);
 
-	CREATE TABLE IF NOT EXISTS acquired_warmups (
+	CREATE TABLE IF NOT EXISTS acquired_warmup_groups (
 	    user_id				int8		REFERENCES users(user_id),
-	    warmup_id			int			REFERENCES warmups(warmup_id),
+	    group_id			int			REFERENCES warmup_groups(warmup_group_id),
 	    
 	    checkout_id			text		UNIQUE NOT NULL,
 	    price_when_acquired	text		NOT NULL,
