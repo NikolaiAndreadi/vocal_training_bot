@@ -34,7 +34,8 @@ var (
 )
 
 func onAdminStart(c tele.Context) error {
-	return c.Send("Админ панель", MainAdminMenu)
+	msg := fmt.Sprintf("Админ панель [ID:%d]", c.Sender().ID)
+	return c.Send(msg, MainAdminMenu)
 }
 
 func onAdminText(c tele.Context) error {
