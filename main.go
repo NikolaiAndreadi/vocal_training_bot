@@ -57,7 +57,7 @@ func main() {
 
 func buildLogger() zapcore.Core {
 	logSync := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   "./log.log",
+		Filename:   "/log/log.log",
 		MaxSize:    500, // mb
 		MaxBackups: 3,
 		MaxAge:     14, // days

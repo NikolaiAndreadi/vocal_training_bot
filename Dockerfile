@@ -13,6 +13,9 @@ COPY *.go ./
 COPY BotExt/*.go ./BotExt/
 COPY healthcheck ./healthcheck
 
+RUN mkdir -p /log
+RUN mkdir -p /message_storage
+
 RUN go build -o /botapp
 RUN go build -o /healthcheck ./healthcheck
 
@@ -22,6 +25,8 @@ FROM gcr.io/distroless/base-debian10 AS run
 WORKDIR /
 COPY --from=build /botapp /botapp
 COPY --from=build /healthcheck /healthcheck
+COPY --from=build --chown=nonroot:nonroot /log /log
+COPY --from=build --chown=nonroot:nonroot /message_storage /message_storage
 
 HEALTHCHECK --interval=1s --timeout=1s --start-period=2s --retries=3 CMD [ "/healthcheck" ]
 

@@ -4,11 +4,12 @@ services:
   bot:
     build: .
     volumes:
-      - botData:/log.log
-      - botData:/message_storage
+      - botDataLog:/log
+      - botDataStorage:/message_storage
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       PROVIDER_TOKEN: ${PROVIDER_TOKEN}
+      SUPERVISOR_USER_ID: ${SUPERVISOR_USER_ID}
 
       PG_PORT: ${PG_PORT}
       PG_HOST: postgres
@@ -82,7 +83,9 @@ services:
     restart: always
 
 volumes:
-  botData:
+  botDataLog:
+    driver: local
+  botDataStorage:
     driver: local
   pgData:
     driver: local

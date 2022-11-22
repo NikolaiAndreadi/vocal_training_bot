@@ -18,7 +18,7 @@ type Config struct {
 	Bot struct {
 		Token         string `yaml:"Token" envconfig:"BOT_TOKEN" validate:"nonzero"`
 		ProviderToken string `yaml:"ProviderToken" envconfig:"PROVIDER_TOKEN" validate:"nonzero"`
-		SupervisorID  int64  `yaml:"SupervisorID" envconfig:"SUPERVISOR_USER_ID"`
+		SupervisorID  int64  `yaml:"SupervisorID" envconfig:"SUPERVISOR_USER_ID" validate:"nonzero"`
 	} `yaml:"Bot"`
 
 	Pg struct {
@@ -65,6 +65,9 @@ func parseEnvConfig(cfg *Config) error {
 func ParseConfig() Config {
 	var cfg Config
 	yamlErr := parseYamlConfig(&cfg)
+	if yamlErr != nil {
+		cfg = Config{}
+	}
 	envErr := parseEnvConfig(&cfg)
 
 	if envErr != nil {
