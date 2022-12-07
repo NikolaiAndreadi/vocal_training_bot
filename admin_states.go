@@ -165,7 +165,7 @@ func SetupAdminStates() {
 		},
 		{
 			Name:        AdminSGWarmupSetContent,
-			OnTrigger:   "Напиши содержание распевки. Как закончишь - напиши СТОП",
+			OnTrigger:   "Напиши содержание распевки. Как закончишь - напиши СТОП. Для отмены напиши ОТМЕНА",
 			Manipulator: RecordWarmup,
 			OnSuccess:   "Успех! Распевка сохранена!",
 		},
