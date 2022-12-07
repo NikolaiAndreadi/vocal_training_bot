@@ -12,25 +12,27 @@ import (
 )
 
 const (
-	wannabeStudentResolutionMenu = "wannabeStudentResolutionMenu"
-	warmupGroupAdminMenu         = "warmupGroupAdminMenu"
-	changeWarmupMenu             = "changeWarmupMenu"
-	changeWarmupParamsMenu       = "changeWarmupParamsMenu"
+	// wannabeStudentResolutionMenu = "wannabeStudentResolutionMenu"
+	warmupGroupAdminMenu   = "warmupGroupAdminMenu"
+	changeWarmupMenu       = "changeWarmupMenu"
+	changeWarmupParamsMenu = "changeWarmupParamsMenu"
 
 	changeWarmupGroupParamsMenu = "changeWarmupGroupParamsMenu"
 )
 
 func SetupAdminMenuHandlers(b *tele.Bot) {
-	wannabeStudentResolutionIM := BotExt.NewDynamicInlineMenu(
-		wannabeStudentResolutionMenu,
-		"Существующие заявки",
-		1,
-		wannabeStudentResolutionFetcher,
-	)
-	err := adminInlineMenus.RegisterMenu(b, wannabeStudentResolutionIM)
-	if err != nil {
-		panic(err)
-	}
+	/*
+		wannabeStudentResolutionIM := BotExt.NewDynamicInlineMenu(
+			wannabeStudentResolutionMenu,
+			"Существующие заявки",
+			1,
+			wannabeStudentResolutionFetcher,
+		)
+		err := adminInlineMenus.RegisterMenu(b, wannabeStudentResolutionIM)
+		if err != nil {
+			panic(err)
+		}
+	*/
 
 	warmupGroupAdminIM := BotExt.NewDynamicInlineMenu(
 		warmupGroupAdminMenu,
@@ -38,7 +40,7 @@ func SetupAdminMenuHandlers(b *tele.Bot) {
 		1,
 		warmupGroupAdminFetcher,
 	)
-	err = adminInlineMenus.RegisterMenu(b, warmupGroupAdminIM)
+	err := adminInlineMenus.RegisterMenu(b, warmupGroupAdminIM)
 	if err != nil {
 		panic(err)
 	}
@@ -138,38 +140,40 @@ func SetupAdminMenuHandlers(b *tele.Bot) {
 
 }
 
-func wannabeStudentResolutionFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
-	rows, err := DB.Query(context.Background(), `
-	SELECT user_id::text, user_name FROM wannabe_student
-	WHERE resolved = false
-	ORDER BY created DESC`)
-	defer rows.Close()
-	if err != nil {
-		return nil, fmt.Errorf("wannabeStudentResolutionFetcher: can't fetch database: %w", err)
-	}
-	omap := om.New[string, string]()
-
-	var userID, userName string
-
-	for rows.Next() {
-		err = rows.Scan(&userID, &userName)
+/*
+	func wannabeStudentResolutionFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
+		rows, err := DB.Query(context.Background(), `
+		SELECT user_id::text, user_name FROM wannabe_student
+		WHERE resolved = false
+		ORDER BY created DESC`)
+		defer rows.Close()
 		if err != nil {
-			return omap, fmt.Errorf("wannabeStudentResolutionFetcher: can't fetch row: %w", err)
+			return nil, fmt.Errorf("wannabeStudentResolutionFetcher: can't fetch database: %w", err)
 		}
-		text := "Пользователь @" + userName
-		omap.Set(userID, text)
-	}
+		omap := om.New[string, string]()
 
-	if omap.Len() == 0 {
-		err := c.Send("Активных заявок нет")
-		if err != nil {
-			logger.Error("can't send message", zap.Error(err))
+		var userID, userName string
+
+		for rows.Next() {
+			err = rows.Scan(&userID, &userName)
+			if err != nil {
+				return omap, fmt.Errorf("wannabeStudentResolutionFetcher: can't fetch row: %w", err)
+			}
+			text := "Пользователь @" + userName
+			omap.Set(userID, text)
 		}
-		return nil, BotExt.NoButtons
-	}
 
-	return omap, nil
-}
+		if omap.Len() == 0 {
+			err := c.Send("Активных заявок нет")
+			if err != nil {
+				logger.Error("can't send message", zap.Error(err))
+			}
+			return nil, BotExt.NoButtons
+		}
+
+		return omap, nil
+	}
+*/
 
 func warmupGroupAdminFetcher(c tele.Context) (*om.OrderedMap[string, string], error) {
 	rows, err := DB.Query(context.Background(), `

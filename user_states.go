@@ -10,8 +10,6 @@ import (
 
 	"vocal_training_bot/BotExt"
 
-	"github.com/jackc/pgx/v5"
-	"golang.org/x/exp/slices"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	tele "gopkg.in/telebot.v3"
@@ -19,22 +17,22 @@ import (
 
 const (
 	SurveySGStartSurveyReqName = "SurveyStateGroup_StartSurveyReqName"
-	surveySGSetAge             = "SurveyStateGroup_SetAge"
-	surveySGSetCity            = "SurveyStateGroup_SetCity"
-	surveySGSetTimezone        = "SurveyStateGroup_SetTimezone"
-	surveySGSetExperience      = "SurveyStateGroup_SetExperience"
+	// surveySGSetAge             = "SurveyStateGroup_SetAge"
+	surveySGSetCity     = "SurveyStateGroup_SetCity"
+	surveySGSetTimezone = "SurveyStateGroup_SetTimezone"
+	// surveySGSetExperience      = "SurveyStateGroup_SetExperience"
 
-	surveySGVarName        = "Name"
-	surveySGVarAge         = "Age"
-	surveySGVarCity        = "City"
-	surveySGVarTimezoneRaw = "TimezoneRaw"
-	surveySGVarTimezoneStr = "TimezoneTxt"
+	surveySGVarName = "Name"
+	// surveySGVarAge         = "Age"
+	surveySGVarCity = "City"
+	// surveySGVarTimezoneRaw = "TimezoneRaw"
+	// surveySGVarTimezoneStr = "TimezoneTxt"
 
-	SettingsSGSetName       = "SettingsStateGroup_SetName"
-	SettingsSGSetAge        = "SettingsStateGroup_SetAge"
-	SettingsSGSetCity       = "SettingsStateGroup_SetCity"
-	SettingsSGSetTimezone   = "SettingsStateGroup_SetTimezone"
-	SettingsSGSetExperience = "SettingsStateGroup_SetExperience"
+	SettingsSGSetName = "SettingsStateGroup_SetName"
+	//SettingsSGSetAge        = "SettingsStateGroup_SetAge"
+	SettingsSGSetCity     = "SettingsStateGroup_SetCity"
+	SettingsSGSetTimezone = "SettingsStateGroup_SetTimezone"
+	// SettingsSGSetExperience = "SettingsStateGroup_SetExperience"
 
 	NotificationSGSetTime = "NotificationStateGroup_SetTime"
 
@@ -44,30 +42,40 @@ const (
 func SetupUserStates(fsm *BotExt.FSM) {
 	err := fsm.RegisterStateChain([]*BotExt.State{
 		{
-			Name:        SurveySGStartSurveyReqName,
-			OnTrigger:   "Привет! Чтобы пользоваться ботом надо сначала пройти опрос из нескольких вопросов.\n\n(1/5) Назови, пожалуйста, своё имя?",
+			Name: SurveySGStartSurveyReqName,
+			OnTrigger: `Привет 🤍 рад наконец-то видеть тебя здесь! Я - вокальный бот, буду помогать и
+поддерживать тебя на твоём вокальном пути!
+
+Перед началом надо ответь на несколько моих вопросов…
+
+(1/3) Напиши своё имя и фамилию 👩‍🎤
+`,
 			Validator:   nameValidator,
 			Manipulator: nameSaver,
 		},
-		{
+		/*{
 			Name:        surveySGSetAge,
 			OnTrigger:   "(2/5) Теперь скажи, сколько тебе лет?",
 			Validator:   ageValidator,
 			Manipulator: ageSaver,
-		},
+		},*/
 		{
 			Name:        surveySGSetCity,
-			OnTrigger:   "(3/5) Отлично! А в каком городе живешь?",
+			OnTrigger:   "(2/3) Приятно познакомиться 🤓 Из какого ты города?",
 			Validator:   cityValidator,
 			Manipulator: citySaver,
 		},
 		{
 			Name:        surveySGSetTimezone,
-			OnTrigger:   "(4/5) Сколько сейчас времени по твоим часам? Надо написать часы:минуты, например, 23:15. Это надо чтобы понять в каком часовом поясе ты находишься.",
+			OnTrigger:   "(3/3) Сколько сейчас времени по твоим часам? Надо написать часы:минуты, например, 23:15. Это надо чтобы понять в каком часовом поясе ты находишься.",
 			Validator:   timeValidator,
 			Manipulator: timezoneSaver,
+			OnSuccess: `Спасибо! Ты зарегистрирован в системе бота и теперь тебе доступна его функциональность!
+В главном меню ты найдёшь упражнения, распевки, напоминания и полезные материалы 🤍
+⚠️ Если главное меню не открывается, нажми на иконку 🎛 в правом нижнем углу`,
+			OnQuitExtra: []interface{}{MainUserMenu},
 		},
-		{
+		/*{
 			Name:           surveySGSetExperience,
 			OnTrigger:      "(5/5) Сколько занимаешься вокалом?",
 			Validator:      experienceValidator,
@@ -75,7 +83,7 @@ func SetupUserStates(fsm *BotExt.FSM) {
 			OnTriggerExtra: []interface{}{experienceReplyMenu},
 			OnSuccess:      "Спасибо! Ты зарегистрирован в системе бота и теперь тебе доступна его функциональность!",
 			OnQuitExtra:    []interface{}{MainUserMenu},
-		},
+		},*/
 	})
 	if err != nil {
 		panic(err)
@@ -99,7 +107,7 @@ func SetupUserStates(fsm *BotExt.FSM) {
 		panic(err)
 	}
 
-	err = fsm.RegisterOneShotState(&BotExt.State{
+	/* err = fsm.RegisterOneShotState(&BotExt.State{
 		Name:      SettingsSGSetAge,
 		OnTrigger: "Введи новый возраст",
 		Validator: ageValidator,
@@ -116,7 +124,7 @@ func SetupUserStates(fsm *BotExt.FSM) {
 	if err != nil {
 		panic(err)
 	}
-
+	*/
 	err = fsm.RegisterOneShotState(&BotExt.State{
 		Name:      SettingsSGSetCity,
 		OnTrigger: "Введи новый город",
@@ -159,29 +167,31 @@ func SetupUserStates(fsm *BotExt.FSM) {
 		panic(err)
 	}
 
-	err = fsm.RegisterOneShotState(&BotExt.State{
-		Name:           SettingsSGSetExperience,
-		OnTrigger:      "Сколько уже занимаешься вокалом?",
-		OnTriggerExtra: []interface{}{experienceReplyMenu},
-		Validator:      experienceValidator,
-		Manipulator: func(c tele.Context) (err error) {
-			_, err = DB.Exec(context.Background(), `
-				UPDATE users
-				SET experience = $1
-				WHERE user_id = $2
-				`, c.Text(), c.Sender().ID)
-			return
-		},
-		OnSuccess:   "Опыт вокала изменен",
-		OnQuitExtra: []interface{}{MainUserMenu},
-	})
-	if err != nil {
-		panic(err)
-	}
+	/*
+		err = fsm.RegisterOneShotState(&BotExt.State{
+			Name:           SettingsSGSetExperience,
+			OnTrigger:      "Сколько уже занимаешься вокалом?",
+			OnTriggerExtra: []interface{}{experienceReplyMenu},
+			Validator:      experienceValidator,
+			Manipulator: func(c tele.Context) (err error) {
+				_, err = DB.Exec(context.Background(), `
+					UPDATE users
+					SET experience = $1
+					WHERE user_id = $2
+					`, c.Text(), c.Sender().ID)
+				return
+			},
+			OnSuccess:   "Опыт вокала изменен",
+			OnQuitExtra: []interface{}{MainUserMenu},
+		})
+		if err != nil {
+			panic(err)
+		}
+	*/
 
 	err = fsm.RegisterOneShotState(&BotExt.State{
 		Name:      NotificationSGSetTime,
-		OnTrigger: "Введи время срабатывания напоминания в формате ЧЧ:ММ, например, 6:40 или 19:05",
+		OnTrigger: "Введи время, в которое ты хочешь получать напоминание о занятиях. Напиши в формате чч:мм, например, 14:00",
 		Validator: timeValidator,
 		Manipulator: func(c tele.Context) error {
 			userID := c.Sender().ID
@@ -212,20 +222,48 @@ func SetupUserStates(fsm *BotExt.FSM) {
 
 			return err
 		},
-		OnSuccess: "Время напоминания изменено!",
+		OnSuccess: "Отлично! Буду на связи в это время 🤓",
 	})
 	if err != nil {
 		panic(err)
 	}
 
 	err = fsm.RegisterOneShotState(&BotExt.State{
-		Name:           WannabeStudentSGSendReq,
-		OnTrigger:      "Хочешь стать учеником? Я с тобой свяжусь! Как с тобой лучше связаться?",
-		OnTriggerExtra: []interface{}{wannabeStudentMenu},
-		Validator:      wannabeStudentValidator,
-		Manipulator:    wannabeStudentManipulator,
-		OnSuccess:      "Готово!",
-		OnQuitExtra:    []interface{}{MainUserMenu},
+		Name: WannabeStudentSGSendReq,
+		OnTrigger: `Я преподаю вокал в Москве и онлайн в любой точке мира
+
+В первой части урока мы уделяем время тренировке голосовых мышц, координации голоса, теории, вопросам, изучению новых приемов и возможностей нашего голоса 🤓
+Во второй части урока мы поем, кайфуем, разбираем песни, импровизируем и творим музыку здесь и сейчас ✨🎶🤍
+
+Одеваемся на занятия удобно, так как мы много работаем с телом + берём с собой
+бутылочку воды, готовим несколько песен, тексты и, конечно, open mind 🪐🤍
+
+🏢 Занятие в Москве 🏢
+Адрес для занятий в Москве: Красный Октябрь, Берсеневская набережная 6 с2, we play music rooms
+Урок длится 60 мин
+
+💻 Занятие онлайн 💻
+Урок длится 90 мин. В онлайне работаем дольше, чем на студии из-за особенностей формата и взаимодействия + закладываем время на косяки связи. Созваниваемся по фейстайм/скайп
+
+🍨 Цены 🍨
+2000р - стартовое занятие
+3000р - разовое занятие
+10000р - абонемент на 4 занятия
+*цены на онлайн и оффлайн занятия одинаковы
+
+Чтобы записаться на урок, напишите мне в личные сообщения в телеграме! @vershkovaaa
+
+🎁 Сертификаты 🎁
+
+Декабрь - время милых подарков для своих близких! Если вы хотите их порадовать и дать волшебный пинок для развития своего голоса, проявленности и открытости, вы можете подарить им занятия вокалом со мной 🤍
+Также вы можете попросить их положить вам под ёлку сертификат на одно или несколько занятий к новому году 🎅❤️
+Сертификат работает для всех форматов обучения: онлайн и оффлайн. Действует в течение двух месяцев.
+`,
+		// OnTriggerExtra: []interface{}{wannabeStudentMenu},
+		//Validator:   wannabeStudentValidator,
+		//Manipulator: wannabeStudentManipulator,
+		//OnSuccess:   "Готово!",
+		//OnQuitExtra: []interface{}{MainUserMenu},
 	})
 }
 
@@ -243,6 +281,7 @@ func nameValidator(c tele.Context) string {
 	return ""
 }
 
+/*
 func ageValidator(c tele.Context) string {
 	ageText := c.Text()
 	age, err := strconv.Atoi(ageText)
@@ -257,6 +296,7 @@ func ageValidator(c tele.Context) string {
 	}
 	return ""
 }
+*/
 
 func cityValidator(c tele.Context) string {
 	city := strings.TrimSpace(c.Text())
@@ -299,6 +339,7 @@ func timeValidator(c tele.Context) string {
 	return ""
 }
 
+/*
 func experienceValidator(c tele.Context) string {
 	xpVariant := strings.ToLower(strings.TrimSpace(c.Text()))
 	if ok := slices.Contains(experienceAllowedAnswers, xpVariant); !ok {
@@ -306,6 +347,7 @@ func experienceValidator(c tele.Context) string {
 	}
 	return ""
 }
+*/
 
 func nameSaver(c tele.Context) error {
 	name := strings.TrimSpace(c.Text())
@@ -314,11 +356,13 @@ func nameSaver(c tele.Context) error {
 	return nil
 }
 
+/*
 func ageSaver(c tele.Context) error {
 	age := c.Text()
 	BotExt.SetStateVar(c.Sender().ID, surveySGVarAge, age)
 	return nil
 }
+*/
 
 func citySaver(c tele.Context) error {
 	city := strings.TrimSpace(c.Text())
@@ -335,10 +379,26 @@ func timezoneSaver(c tele.Context) error {
 	if err != nil {
 		return err
 	}
+	_ = c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
+
 	userID := c.Sender().ID
-	BotExt.SetStateVar(userID, surveySGVarTimezoneStr, utcTimezone)
-	BotExt.SetStateVar(userID, surveySGVarTimezoneRaw, utcMinutesShift)
-	return c.Send(fmt.Sprintf("Получается, твой часовой пояс - %s", utcTimezone))
+
+	values := BotExt.GetStateVars(userID)
+	name, _ := values[surveySGVarName]
+	city, _ := values[surveySGVarCity]
+
+	joinTime := time.Now().UTC()
+
+	_, err = DB.Exec(context.Background(), `
+				INSERT INTO users(user_id, username, city, timezone_raw, timezone_txt, join_dt)
+				VALUES ($1, $2, $3, $4, $5, $6)
+				`, userID, name, city, utcMinutesShift, utcTimezone, joinTime)
+	if err != nil {
+		return err
+	}
+
+	err = initUserDBs(c.Sender().ID)
+	return err
 }
 
 func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, utcMinutesShift string, err error) {
@@ -382,6 +442,7 @@ func calcTimezoneByTimeShift(userHours, userMinutes int) (utcTimezone string, ut
 	return
 }
 
+/*
 func saveSurveyRegisterUser(c tele.Context) error {
 	userID := c.Sender().ID
 
@@ -408,7 +469,9 @@ func saveSurveyRegisterUser(c tele.Context) error {
 	err = initUserDBs(c.Sender().ID)
 	return err
 }
+*/
 
+/*
 func wannabeStudentValidator(c tele.Context) string {
 	t := c.Text()
 	if t == "" && c.Message().ReplyTo != nil {
@@ -459,3 +522,4 @@ func wannabeStudentManipulator(c tele.Context) error {
 	`, userID, userName, phone)
 	return err
 }
+*/

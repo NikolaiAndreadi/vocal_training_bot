@@ -150,6 +150,12 @@ func (s *State) Trigger(c tele.Context) {
 	if err != nil {
 		logger.Error("can't send a message", zap.Int64("UserID", userID), zap.Error(err))
 	}
+
+	if s.Validator == nil {
+		if s.Manipulator == nil {
+			s.Update(c)
+		}
+	}
 }
 
 // Update is a function to process current state

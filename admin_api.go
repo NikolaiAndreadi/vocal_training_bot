@@ -25,10 +25,10 @@ func setupAdminHandlers(b *tele.Bot) {
 
 var (
 	MainAdminMenuOptions = []string{
-		"Отправить сообщение всем", "Добавить подбадривание", // X X
-		"Добавить пакет распевок", "Изменить пакет распевок", // x x
-		"Добавить распевку", "Изменить распевку", // x x
-		"Кто хочет стать учеником", "Забанить, Сделать админом", // X X
+		"Отправить сообщение всем", "Добавить подбадривание",
+		"Добавить пакет распевок", "Изменить пакет распевок",
+		"Добавить распевку", "Изменить распевку",
+		/*"Кто хочет стать учеником",*/ "Забанить, Сделать админом",
 	}
 	MainAdminMenu = BotExt.ReplyMenuConstructor(MainAdminMenuOptions, 2, false)
 )
@@ -73,8 +73,8 @@ func onAdminText(c tele.Context) error {
 		BotExt.SetStateVar(userID, "RecordID", uuid.New().String())
 		adminFSM.Trigger(c, AdminSGRecordCheerup)
 		return nil
-	case "Кто хочет стать учеником":
-		return adminInlineMenus.Show(c, wannabeStudentResolutionMenu)
+	//case "Кто хочет стать учеником":
+	//	return adminInlineMenus.Show(c, wannabeStudentResolutionMenu)
 	case "ОЧИСТИТЬ КЭШ":
 		err := RD.FlushAll().Err()
 		if err != nil {
@@ -119,7 +119,8 @@ func OnAdminInlineResult(c tele.Context) error {
 	triggeredItem := triggeredData[1]
 	userID := c.Sender().ID
 	switch triggeredItem {
-	case wannabeStudentResolutionMenu:
+	/*
+		case wannabeStudentResolutionMenu:
 		userID_, err := strconv.ParseInt(triggeredID, 10, 64)
 		if err != nil {
 			logger.Error("can't parse userID", zap.Error(err))
@@ -129,7 +130,7 @@ func OnAdminInlineResult(c tele.Context) error {
 			logger.Error("can't resolve WannabeStudent", zap.Error(err))
 		}
 		return c.Respond()
-
+	*/
 	case warmupGroupAdminMenu:
 		if adminFSM.GetCurrentState(c) == AdminSGAddWarmup {
 			BotExt.SetStateVar(userID, "selectedWarmupGroup", triggeredID)
@@ -153,6 +154,7 @@ func OnAdminInlineResult(c tele.Context) error {
 	return c.Respond()
 }
 
+/*
 func resolveWannabeStudent(c tele.Context, userID int64) error {
 	var userName, userPhone, createdDate string
 	err := DB.QueryRow(context.Background(), `
@@ -187,6 +189,7 @@ func resolveWannabeStudent(c tele.Context, userID int64) error {
 
 	return err
 }
+*/
 
 func sendUserList(c tele.Context) error {
 	rows, err := DB.Query(context.Background(), `

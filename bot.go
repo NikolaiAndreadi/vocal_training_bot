@@ -12,7 +12,7 @@ type UserIDType struct {
 	UserID int64
 }
 
-var ProviderToken string
+// var ProviderToken string
 var SupervisorID int64
 
 func (u UserIDType) Recipient() string {
@@ -23,7 +23,7 @@ func InitBot(cfg Config) *tele.Bot {
 	teleCfg := tele.Settings{
 		Token: cfg.Bot.Token,
 	}
-	ProviderToken = cfg.Bot.ProviderToken
+	// ProviderToken = cfg.Bot.ProviderToken
 	SupervisorID = cfg.Bot.SupervisorID
 
 	bot, err := tele.NewBot(teleCfg)
@@ -38,7 +38,7 @@ func InitBot(cfg Config) *tele.Bot {
 	bot.Handle(tele.OnCallback, onCallback)
 	bot.Handle(tele.OnMedia, onMedia)
 	bot.Handle(tele.OnContact, onContact)
-	bot.Handle(tele.OnCheckout, onCheckout)
+	// bot.Handle(tele.OnCheckout, onCheckout)
 
 	setupUserHandlers(bot)
 	setupAdminHandlers(bot)
@@ -123,6 +123,7 @@ func onContact(c tele.Context) error {
 	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }
 
+/*
 func onCheckout(c tele.Context) error {
 	ug, _ := GetUserGroup(c.Sender().ID)
 	c.Set("route", "onCheckout")
@@ -132,3 +133,4 @@ func onCheckout(c tele.Context) error {
 	}
 	return c.Send("Что-то пошло не так! Пожалуйста, попробуй написать позже...")
 }
+*/

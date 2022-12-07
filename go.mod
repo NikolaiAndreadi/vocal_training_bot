@@ -10,7 +10,6 @@ require (
 	github.com/prometheus/client_golang v1.11.1
 	github.com/wk8/go-ordered-map/v2 v2.0.0
 	go.uber.org/zap v1.23.0
-	golang.org/x/exp v0.0.0-20221026004748-78e5e7837ae6
 	golang.org/x/text v0.4.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/telebot.v3 v3.1.2

@@ -13,7 +13,7 @@ import (
 
 var (
 	MainUserMenuOptions = []string{
-		"Распевки",
+		"Упражнения",
 		"Напоминания",
 		"Записаться на урок",
 		"Обо мне",
@@ -30,8 +30,8 @@ const (
 )
 
 var (
-	experienceAllowedAnswers = []string{"без опыта", "менее 1 года", "1-2 года", "2-3 года", "3-5 лет", "более 5 лет"}
-	experienceReplyMenu      = BotExt.ReplyMenuConstructor(experienceAllowedAnswers, 2, true)
+	//experienceAllowedAnswers = []string{"без опыта", "менее 1 года", "1-2 года", "2-3 года", "3-5 лет", "более 5 лет"}
+	//experienceReplyMenu      = BotExt.ReplyMenuConstructor(experienceAllowedAnswers, 2, true)
 
 	wannabeStudentMenu = &tele.ReplyMarkup{ResizeKeyboard: true}
 )
@@ -60,19 +60,19 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 		"Текущие настройки: нажми на пункт, чтобы изменить",
 		1,
 		func(c tele.Context) (map[string]string, error) {
-			var name, age, city, tz, xp string
+			var name, city, tz string
 			err := DB.QueryRow(context.Background(),
-				"SELECT username, text(age), city, timezone_txt, experience FROM users WHERE user_id = $1",
-				c.Sender().ID).Scan(&name, &age, &city, &tz, &xp)
+				"SELECT username, city, timezone_txt FROM users WHERE user_id = $1",
+				c.Sender().ID).Scan(&name, &city, &tz)
 			if err != nil {
 				return nil, err
 			}
 			data := map[string]string{
-				"name":       name,
-				"age":        age,
-				"city":       city,
-				"timezone":   tz,
-				"experience": xp,
+				"name": name,
+				//"age":        age,
+				"city":     city,
+				"timezone": tz,
+				//"experience": xp,
 			}
 			return data, nil
 		},
@@ -92,7 +92,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 				return c.Respond()
 			},
 		},
-		{
+		/*{
 			Unique: "ChangeAge",
 			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
 				s, ok := dc["age"]
@@ -105,7 +105,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 				userFSM.Trigger(c, SettingsSGSetAge, AccountSettingsMenu)
 				return c.Respond()
 			},
-		},
+		},*/
 		{
 			Unique: "ChangeCity",
 			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
@@ -134,7 +134,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 				return c.Respond()
 			},
 		},
-		{
+		/*{
 			Unique: "ChangeExperience",
 			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
 				s, ok := dc["experience"]
@@ -147,7 +147,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 				userFSM.Trigger(c, SettingsSGSetExperience, AccountSettingsMenu)
 				return c.Respond()
 			},
-		},
+		},*/
 		cancelButton,
 	})
 	err := userInlineMenus.RegisterMenu(bot, AccountSettingsIM)
@@ -157,7 +157,11 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 
 	warmupNotificationIM := BotExt.NewInlineMenu(
 		WarmupNotificationsMenu,
-		"Настройки напоминаний о распевках:",
+		`Здесь ты можешь настроить напоминалки о самостоятельных занятиях 📩
+🔔 - включить напоминание
+🔕 - отключить напоминание
+🕐 в окошках со временем ты можешь изменить время отправки напоминания
+`,
 		2,
 		WarmupNotificationsMenuDataFetcher,
 	)
@@ -180,7 +184,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 		{
 			Unique: "GlobalSwitch",
 			TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
-				s := "Глобальный выключатель: "
+				s := "Общий выключатель "
 				v, ok := dc["globalOn"]
 				if !ok {
 					return s + "???", fmt.Errorf("can't fetch globalOn")
@@ -223,7 +227,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 
 	warmupGroupsIM := BotExt.NewDynamicInlineMenu(
 		WarmupGroupsMenu,
-		"Категории распевок",
+		"Категории:",
 		1,
 		warmupGroupsFetcher,
 	)
@@ -234,7 +238,7 @@ func SetupUserMenuHandlers(bot *tele.Bot) {
 
 	warmupsIM := BotExt.NewDynamicInlineMenu(
 		WarmupsMenu,
-		"Распевки:",
+		"Категории:",
 		1,
 		warmupsFetcher)
 	err = userInlineMenus.RegisterMenu(bot, warmupsIM)
@@ -285,7 +289,7 @@ func NotificationButtonFabric(fsm *BotExt.FSM, ims *BotExt.InlineMenusType, dayU
 	ibt[0] = &BotExt.InlineButtonTemplate{
 		Unique: "NotificationSwitch_" + dayUnique,
 		TextOnCreation: func(c tele.Context, dc map[string]string) (string, error) {
-			s := dayText + ": "
+			s := dayText + " "
 			v, ok := dc[dayUnique+"On"]
 			if !ok {
 				return s + "???", fmt.Errorf("can't fetch %sOn", dayUnique)

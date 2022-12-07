@@ -44,17 +44,17 @@ func createSchema(conn *pgxpool.Pool) {
 	CREATE TABLE IF NOT EXISTS users (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		username		varchar(50), -- user name
-		age				int2  		CHECK (age > 0),
+		-- age				int2  		CHECK (age > 0),
 		city			varchar(50), -- city name
 		timezone_raw	int4  		CHECK (timezone_raw BETWEEN -720 AND 840), -- shift from UTC in minutes
 		timezone_txt	text		NOT NULL, -- text representation of timezone, from google maps API
-		experience      VARCHAR(20) NOT NULL, -- experience of vocal training
+		-- experience      VARCHAR(20) NOT NULL, -- experience of vocal training
 		user_class		VARCHAR(7)  NOT NULL DEFAULT 'USER' CHECK (user_class IN ('USER', 'ADMIN', 'BANNED')), -- group for user
 		join_dt			timestamp	NOT NULL, -- UTC timestamp of connection to the bot
 		
 		PRIMARY KEY (user_id)
 	);
-
+	/*
 	CREATE TABLE IF NOT EXISTS wannabe_student (
 	    user_id		int8		REFERENCES users(user_id),
 	    user_name   text    	NOT NULL,
@@ -62,7 +62,7 @@ func createSchema(conn *pgxpool.Pool) {
 	    resolved	bool 		DEFAULT false,
 	    created		timestamp	DEFAULT now()
 	);
-
+	*/
 	CREATE TABLE IF NOT EXISTS states (
 		user_id			int8		NOT NULL, -- 64 bit integer for chat_id / user_id
 		state			text,
